@@ -10,15 +10,19 @@
 #   브라우저: http://localhost:8080
 # ─────────────────────────────────────────────────────────────────────────────
 
-version: "3.9"
-
 services:
 
   # ── MySQL 데이터베이스 ──────────────────────────────────────────────────────
   db:
-    image: mysql:8.0
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    image: itqbank-mysql:8.0-charset
     container_name: quiz_db
     restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE:      ${DB_NAME:-quizdb}
@@ -52,17 +56,20 @@ services:
       DB_NAME:      ${DB_NAME:-quizdb}
       DB_USER:      ${DB_USER:-quizuser}
       DB_PASSWORD:  ${DB_PASSWORD:-quizpassword}
+      USE_SQLITE_FALLBACK: true
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      GEMINI_API_URL: ${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-45}
+      PURGE_DEFAULT_ON_BOOT: ${PURGE_DEFAULT_ON_BOOT:-true}
       FLASK_DEBUG:  ${FLASK_DEBUG:-false}
       PORT:         5000
     ports:
       - "5000:5000"
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - quiz_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -78,6 +85,7 @@ services:
     restart: unless-stopped
     environment:
       BACKEND_URL:  http://backend:5000
+      FRONTEND_PROXY_TIMEOUT: ${FRONTEND_PROXY_TIMEOUT:-75}
       FLASK_DEBUG:  ${FLASK_DEBUG:-false}
       PORT:         8080
     ports:

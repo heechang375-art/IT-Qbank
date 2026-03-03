@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>결과 확인 — IT 문제은행</title>
+  <title>IT 문제은행 - 결과</title>
   <link rel="stylesheet" href="/static/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -20,20 +20,17 @@
 </header>
 
 <main class="container main-content">
-
-  <!-- 점수 카드 -->
   <section class="result-hero card">
     <div class="result-icon" id="resultIcon">
       <i class="fa-solid fa-trophy"></i>
     </div>
-    <h1 class="result-title" id="resultTitle">수고하셨습니다!</h1>
+    <h1 class="result-title" id="resultTitle">수고하셨습니다</h1>
     <p class="result-user" id="resultUser"></p>
 
     <div class="score-ring-wrap">
       <svg class="score-ring" viewBox="0 0 120 120">
-        <circle class="ring-bg"  cx="60" cy="60" r="52" />
-        <circle class="ring-bar" cx="60" cy="60" r="52" id="ringBar"
-                stroke-dasharray="326.7" stroke-dashoffset="326.7" />
+        <circle class="ring-bg" cx="60" cy="60" r="52" />
+        <circle class="ring-bar" cx="60" cy="60" r="52" id="ringBar" stroke-dasharray="326.7" stroke-dashoffset="326.7" />
       </svg>
       <div class="score-text">
         <span class="score-pct" id="scorePct">0%</span>
@@ -63,19 +60,21 @@
 
     <div class="result-actions">
       <button id="reviewBtn" class="btn btn-primary">
-        <i class="fa-solid fa-magnifying-glass"></i> 문제 풀이 보기
+        <i class="fa-solid fa-magnifying-glass"></i> 문제 다시보기
+      </button>
+      <button id="historyBtn" class="btn btn-secondary">
+        <i class="fa-solid fa-clock-rotate-left"></i> 이력 보기
       </button>
       <a href="/" class="btn btn-secondary">
         <i class="fa-solid fa-rotate-left"></i> 다시 풀기
       </a>
     </div>
   </section>
-
 </main>
 
 <script>
-const result   = JSON.parse(sessionStorage.getItem("quizResult") || "null");
-const userName = sessionStorage.getItem("userName") || "응시자";
+const result = JSON.parse(sessionStorage.getItem("quizResult") || "null");
+const userName = sessionStorage.getItem("userName") || "익명";
 
 if (!result) {
   document.querySelector(".result-hero").innerHTML =
@@ -83,27 +82,25 @@ if (!result) {
 } else {
   const { total, correct, wrong, score_percent } = result;
 
-  document.getElementById("resultUser").textContent   = `${userName}님의 시험 결과`;
+  document.getElementById("resultUser").textContent = `${userName} 님의 시험 결과`;
   document.getElementById("correctCount").textContent = correct;
-  document.getElementById("wrongCount").textContent   = wrong;
-  document.getElementById("totalCount").textContent   = total;
-  document.getElementById("scorePct").textContent     = score_percent + "%";
+  document.getElementById("wrongCount").textContent = wrong;
+  document.getElementById("totalCount").textContent = total;
+  document.getElementById("scorePct").textContent = score_percent + "%";
 
-  // 아이콘 / 색상 분기
-  const icon  = document.getElementById("resultIcon");
+  const icon = document.getElementById("resultIcon");
   const title = document.getElementById("resultTitle");
   if (score_percent >= 80) {
     icon.classList.add("gold");
-    title.textContent = "훌륭합니다! 🎉";
+    title.textContent = "훌륭합니다";
   } else if (score_percent >= 60) {
     icon.classList.add("silver");
-    title.textContent = "잘 하셨습니다! 👍";
+    title.textContent = "잘하셨습니다";
   } else {
     icon.classList.add("bronze");
-    title.textContent = "조금 더 공부해봐요! 📚";
+    title.textContent = "조금 더 학습해보세요";
   }
 
-  // SVG 링 애니메이션
   const circumference = 326.7;
   const offset = circumference - (score_percent / 100) * circumference;
   setTimeout(() => {
@@ -112,9 +109,12 @@ if (!result) {
     bar.style.strokeDashoffset = offset;
   }, 200);
 
-  // 리뷰 페이지로 이동
   document.getElementById("reviewBtn").addEventListener("click", () => {
     window.location.href = "/review";
+  });
+
+  document.getElementById("historyBtn").addEventListener("click", () => {
+    window.location.href = `/history?user=${encodeURIComponent(userName)}`;
   });
 }
 </script>

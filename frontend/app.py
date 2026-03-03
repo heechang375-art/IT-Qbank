@@ -17,6 +17,7 @@ app = Flask(__name__)
 # Local-first default. In docker, set BACKEND_URL=http://backend:5000
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 BACKEND_CANDIDATES = [BACKEND_URL, "http://localhost:5000", "http://127.0.0.1:5000", "http://backend:5000"]
+PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "75"))
 
 
 @app.route("/")
@@ -37,6 +38,11 @@ def result():
 @app.route("/review")
 def review():
     return render_template("review.html")
+
+
+@app.route("/history")
+def history():
+    return render_template("history.html")
 
 
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -66,7 +72,7 @@ def proxy_api(path):
                 url=url,
                 params=params,
                 headers=headers,
-                timeout=30,
+                timeout=(5, PROXY_TIMEOUT),
                 **req_kwargs,
             )
             return Response(
@@ -77,7 +83,7 @@ def proxy_api(path):
         except requests.exceptions.ConnectionError:
             continue
         except requests.exceptions.Timeout:
-            return jsonify({"error": "backend timeout"}), 504
+            return jsonify({"error": "backend timeout", "timeout_sec": PROXY_TIMEOUT, "attempted_backends": attempted}), 504
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

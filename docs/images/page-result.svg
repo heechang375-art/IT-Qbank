@@ -1,0 +1,7 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0a1d3f"/>
+  <text x="80" y="120" fill="#a7b7ff" font-size="44" font-family="Segoe UI, Noto Sans KR, sans-serif">IT 문제은행</text>
+  <text x="80" y="180" fill="#f2f5ff" font-size="64" font-family="Segoe UI, Noto Sans KR, sans-serif">결과 페이지 예시</text>
+  <circle cx="600" cy="360" r="120" fill="none" stroke="#5a6dff" stroke-width="22"/>
+  <text x="535" y="372" fill="#dbe4ff" font-size="56" font-family="Segoe UI, Noto Sans KR, sans-serif">85%</text>
+</svg>

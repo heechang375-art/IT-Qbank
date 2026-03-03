@@ -1,0 +1,7 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#081938"/>
+  <text x="80" y="120" fill="#a7b7ff" font-size="44" font-family="Segoe UI, Noto Sans KR, sans-serif">IT 문제은행</text>
+  <text x="80" y="180" fill="#f2f5ff" font-size="64" font-family="Segoe UI, Noto Sans KR, sans-serif">리뷰 페이지 예시</text>
+  <rect x="100" y="230" width="1000" height="320" rx="16" fill="#1d2f4f" stroke="#3f598f"/>
+  <text x="150" y="300" fill="#dbe4ff" font-size="30" font-family="Segoe UI, Noto Sans KR, sans-serif">선택 답안, 정답 표시, 해설 확인</text>
+</svg>

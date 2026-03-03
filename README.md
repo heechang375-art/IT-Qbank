@@ -1,29 +1,30 @@
 ﻿# IT-Qbank (IT 문제은행)
 
-Flask + MySQL 기반의 IT 퀴즈 서비스입니다.
-카테고리별 문제를 조회하고 채점/리뷰/사용자 이력을 확인할 수 있습니다.
+Flask + MySQL 기반의 IT 퀴즈 서비스입니다.  
+카테고리별 객관식 문제를 AI(Gemini) + DB 하이브리드 방식으로 출제하고, 사용자별 이력과 상세 리뷰를 제공합니다.
 
 ## 핵심 기능
 - 카테고리: `network`, `infra`, `linux`
-- 문제 수 선택: 5/10/15/20
-- API 자동 보강: 문제가 부족하면 AI(Groq) 생성 시도 후 저장
-- 중복 방지: 문제 본문 정규화 해시(`question_hash`) 기준 중복 차단
-- 한글 우선: 한국어 문제만 노출
-- 사용자 이력 저장: `users`, `quiz_attempts`
+- 문제 수 선택: `5 / 10 / 15 / 20`
+- AI 우선 출제 + DB 보강: 부족 시 자동 생성/저장
+- 사용자 최근 풀이 문제 해시(`question_hash`) 기반 중복 회피
+- 한글 우선 문제 생성/표시
+- 사용자별 시도 이력 저장 + 이력 항목별 다시보기
+
+## 페이지 예시
+- 메인(설정): ![메인 페이지](docs/images/page-index.svg)
+- 퀴즈 진행: ![퀴즈 페이지](docs/images/page-quiz.svg)
+- 결과: ![결과 페이지](docs/images/page-result.svg)
+- 오답/리뷰: ![리뷰 페이지](docs/images/page-review.svg)
+- 이력: ![이력 페이지](docs/images/page-history.svg)
 
 ## 프로젝트 구조
 ```text
 IT-Qbank/
 ├─ backend/
-│  ├─ app.py
-│  ├─ init_db.py
-│  ├─ requirements.txt
-│  └─ Dockerfile
 ├─ frontend/
-│  ├─ app.py
-│  ├─ templates/
-│  ├─ static/css/style.css
-│  └─ Dockerfile
+├─ db/
+├─ docs/images/
 ├─ docker-compose.yml
 ├─ .env.example
 ├─ README.md
@@ -35,41 +36,12 @@ IT-Qbank/
 
 주요 변수:
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-- `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_API_URL`, `GROQ_TIMEOUT`
-- `BACKEND_URL`
+- `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_API_URL`, `GEMINI_TIMEOUT`
+- `USE_SQLITE_FALLBACK`
+- `BACKEND_URL`, `FRONTEND_PROXY_TIMEOUT`
 - `FLASK_DEBUG`
 
-## 로컬 실행
-### 1) DB 초기화
-```bash
-cd backend
-python -m venv venv
-# Windows
-venv\Scripts\activate
-pip install -r requirements.txt
-python init_db.py
-```
-
-### 2) 백엔드 실행
-```bash
-cd backend
-venv\Scripts\activate
-python app.py
-# http://localhost:5000
-```
-
-### 3) 프론트 실행
-```bash
-cd frontend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-set BACKEND_URL=http://localhost:5000
-python app.py
-# http://localhost:8080
-```
-
-## Docker Compose 실행
+## 실행
 ```bash
 docker compose up -d --build
 ```
@@ -86,30 +58,30 @@ docker compose down
 ## 주요 API
 - `GET /api/health`
 - `GET /api/categories`
-- `GET /api/questions/<category>?limit=10&shuffle=1&source=auto`
+- `GET /api/questions/<category>?limit=10&shuffle=1&source=ai&user=<name>`
 - `GET /api/questions/<category>/all`
 - `POST /api/submit`
 - `GET /api/history/<user_name>?limit=20`
+- `GET /api/history/<user_name>/<attempt_id>`
 - `GET /api/ai/health`
 - `POST /api/ai/questions`
 
-## 인코딩(한글 깨짐) 체크
-DB 저장은 `utf8mb4` 기준입니다. CLI에서 한글이 깨지면 클라이언트 인코딩 문제입니다.
-
-MySQL CLI 권장:
+## DB 확인 (한글 깨짐 대응)
 ```bash
 chcp 65001
 mysql -h localhost -P 3306 -u quizuser -p --default-character-set=utf8mb4 quizdb
 ```
 
-접속 후:
 ```sql
 SET NAMES utf8mb4;
-SHOW VARIABLES LIKE 'character_set_%';
+SELECT id, category, LEFT(question, 80) AS q, created_at
+FROM questions
+ORDER BY id DESC
+LIMIT 10;
 ```
 
 ## 최근 반영 사항
-- 카테고리 버튼의 DB 문제 수 텍스트 제거
-- 진행 텍스트와 퍼센트 간격 조정
-- `(...번 변형)` 꼬리 제거 및 중복 차단 강화
-- 문제 조회 시 해시 기준 중복 제거
+- 사용자별 최근 풀이 문제 해시 제외 로직 적용
+- 이력 페이지에서 선택한 시도를 리뷰 화면으로 재조회 가능
+- `created_at` 컬럼 자동 보정 로직 추가
+- KST 기준 시각 저장/응답(`created_at_kst`) 정리

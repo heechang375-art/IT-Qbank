@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>문제 풀이 — IT 문제은행</title>
+  <title>IT 문제은행 - 오답노트</title>
   <link rel="stylesheet" href="/static/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -17,108 +17,79 @@
       <span>IT 문제은행</span>
     </a>
     <div class="review-meta">
-      <a href="/result" class="btn btn-sm btn-secondary">
-        <i class="fa-solid fa-chart-bar"></i> 결과로 돌아가기
-      </a>
-      <a href="/" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-rotate-left"></i> 다시 풀기
-      </a>
+      <a href="/result" class="btn btn-sm btn-secondary"><i class="fa-solid fa-chart-bar"></i> 결과로 돌아가기</a>
+      <a href="/" class="btn btn-sm btn-primary"><i class="fa-solid fa-rotate-left"></i> 다시 풀기</a>
     </div>
   </div>
 </header>
 
 <main class="container main-content">
-
-  <!-- 요약 바 -->
   <div class="review-summary card">
-    <div class="rs-item">
-      <span class="rs-label">응시자</span>
-      <span class="rs-val" id="rsUser">-</span>
-    </div>
-    <div class="rs-item">
-      <span class="rs-label">전체 문제</span>
-      <span class="rs-val" id="rsTotal">-</span>
-    </div>
-    <div class="rs-item correct">
-      <span class="rs-label">정답</span>
-      <span class="rs-val" id="rsCorrect">-</span>
-    </div>
-    <div class="rs-item wrong">
-      <span class="rs-label">오답</span>
-      <span class="rs-val" id="rsWrong">-</span>
-    </div>
-    <div class="rs-item">
-      <span class="rs-label">점수</span>
-      <span class="rs-val" id="rsScore">-</span>
-    </div>
+    <div class="rs-item"><span class="rs-label">이름</span><span class="rs-val" id="rsUser">-</span></div>
+    <div class="rs-item"><span class="rs-label">전체 문제</span><span class="rs-val" id="rsTotal">-</span></div>
+    <div class="rs-item correct"><span class="rs-label">정답</span><span class="rs-val" id="rsCorrect">-</span></div>
+    <div class="rs-item wrong"><span class="rs-label">오답</span><span class="rs-val" id="rsWrong">-</span></div>
+    <div class="rs-item"><span class="rs-label">점수</span><span class="rs-val" id="rsScore">-</span></div>
   </div>
 
-  <!-- 필터 탭 -->
   <div class="filter-tabs">
     <button class="filter-tab active" data-filter="all">전체</button>
-    <button class="filter-tab" data-filter="correct">
-      <i class="fa-solid fa-circle-check"></i> 정답만
-    </button>
-    <button class="filter-tab" data-filter="wrong">
-      <i class="fa-solid fa-circle-xmark"></i> 오답만
-    </button>
+    <button class="filter-tab" data-filter="correct"><i class="fa-solid fa-circle-check"></i> 정답만</button>
+    <button class="filter-tab" data-filter="wrong"><i class="fa-solid fa-circle-xmark"></i> 오답만</button>
   </div>
 
-  <!-- 문제 목록 -->
   <div id="reviewList"></div>
 
-  <!-- 에러 -->
   <div id="reviewError" style="display:none" class="error-box">
     <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
     <p>결과 데이터가 없습니다.</p>
     <a href="/" class="btn btn-primary">처음으로</a>
   </div>
-
 </main>
 
 <script>
 const CATEGORY_LABEL = {
   network: "네트워크",
-  infra:   "인프라",
-  linux:   "리눅스",
+  infra: "인프라",
+  linux: "리눅스",
 };
 
-const result   = JSON.parse(sessionStorage.getItem("quizResult") || "null");
-const userName = sessionStorage.getItem("userName") || "응시자";
+const result = JSON.parse(sessionStorage.getItem("quizResult") || "null");
+const userName = sessionStorage.getItem("userName") || "익명";
 
 if (!result) {
   document.getElementById("reviewError").style.display = "flex";
 } else {
   const { total, correct, wrong, score_percent, results } = result;
 
-  // 요약 바
-  document.getElementById("rsUser").textContent    = userName;
-  document.getElementById("rsTotal").textContent   = total + "문제";
+  document.getElementById("rsUser").textContent = userName;
+  document.getElementById("rsTotal").textContent = total + "문제";
   document.getElementById("rsCorrect").textContent = correct + "개";
-  document.getElementById("rsWrong").textContent   = wrong + "개";
-  document.getElementById("rsScore").textContent   = score_percent + "%";
+  document.getElementById("rsWrong").textContent = wrong + "개";
+  document.getElementById("rsScore").textContent = score_percent + "%";
 
-  // 문제 카드 렌더
   function renderReview(filter = "all") {
     const list = document.getElementById("reviewList");
     list.innerHTML = "";
 
-    const filtered = filter === "all"     ? results
-                   : filter === "correct" ? results.filter(r => r.is_correct)
-                   :                        results.filter(r => !r.is_correct);
+    const filtered = filter === "all"
+      ? results
+      : filter === "correct"
+      ? results.filter(r => r.is_correct)
+      : results.filter(r => !r.is_correct);
 
     if (filtered.length === 0) {
       list.innerHTML = `<p class="empty-msg">해당 항목이 없습니다.</p>`;
       return;
     }
 
-    filtered.forEach((r, idx) => {
+    filtered.forEach((r) => {
       const card = document.createElement("div");
       card.className = `review-card card ${r.is_correct ? "rc-correct" : "rc-wrong"}`;
 
       const choicesHTML = ["A", "B", "C", "D"].map(key => {
         let cls = "review-choice";
-        if (key === r.answer)                    cls += " is-answer";
+        if (key === r.answer) cls += " is-answer";
         if (key === r.selected && !r.is_correct) cls += " is-wrong";
 
         const icons = key === r.answer
@@ -139,7 +110,6 @@ if (!result) {
         ? `<span class="badge badge-correct"><i class="fa-solid fa-circle-check"></i> 정답</span>`
         : `<span class="badge badge-wrong"><i class="fa-solid fa-circle-xmark"></i> 오답</span>`;
 
-      // 전역 순서 (원래 results 기준)
       const globalIdx = results.indexOf(r) + 1;
 
       card.innerHTML = `
@@ -151,10 +121,7 @@ if (!result) {
         <p class="rc-question">${r.question}</p>
         <div class="rc-choices">${choicesHTML}</div>
         ${r.explanation
-          ? `<div class="rc-explanation">
-               <i class="fa-solid fa-lightbulb"></i>
-               <span>${r.explanation}</span>
-             </div>`
+          ? `<div class="rc-explanation"><i class="fa-solid fa-lightbulb"></i><span>${r.explanation}</span></div>`
           : ""}
       `;
       list.appendChild(card);
@@ -163,7 +130,6 @@ if (!result) {
 
   renderReview("all");
 
-  // 필터 탭 이벤트
   document.querySelectorAll(".filter-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".filter-tab").forEach(t => t.classList.remove("active"));

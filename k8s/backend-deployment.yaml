@@ -71,6 +71,36 @@ spec:
                 configMapKeyRef:
                   name: quiz-config
                   key: FLASK_DEBUG
+            - name: USE_SQLITE_FALLBACK
+              valueFrom:
+                configMapKeyRef:
+                  name: quiz-config
+                  key: USE_SQLITE_FALLBACK
+            - name: PURGE_DEFAULT_ON_BOOT
+              valueFrom:
+                configMapKeyRef:
+                  name: quiz-config
+                  key: PURGE_DEFAULT_ON_BOOT
+            - name: GEMINI_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: quiz-config
+                  key: GEMINI_MODEL
+            - name: GEMINI_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: quiz-config
+                  key: GEMINI_API_URL
+            - name: GEMINI_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: quiz-config
+                  key: GEMINI_TIMEOUT
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: quiz-secret
+                  key: GEMINI_API_KEY
             - name: PORT
               value: "5000"
           resources:
