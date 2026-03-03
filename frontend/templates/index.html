@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IT 문제은행 — 네트워크 / 인프라 / 리눅스</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ── 헤더 ────────────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <div class="container">
+    <div class="logo">
+      <i class="fa-solid fa-server"></i>
+      <span>IT 문제은행</span>
+    </div>
+    <p class="subtitle">네트워크 · 인프라 · 리눅스 실력을 테스트하세요</p>
+  </div>
+</header>
+
+<!-- ── 메인 ────────────────────────────────────────────────────────────────── -->
+<main class="container main-content">
+
+  <!-- 설정 카드 -->
+  <section class="setup-card card">
+    <h2 class="section-title"><i class="fa-solid fa-sliders"></i> 시험 설정</h2>
+
+    <!-- 이름 입력 -->
+    <div class="form-group">
+      <label for="userName"><i class="fa-solid fa-user"></i> 응시자 이름</label>
+      <input
+        type="text"
+        id="userName"
+        class="form-input"
+        placeholder="이름을 입력하세요"
+        maxlength="30"
+        autocomplete="off"
+      />
+    </div>
+
+    <!-- 문제 수 -->
+    <div class="form-group">
+      <label for="questionCount"><i class="fa-solid fa-list-ol"></i> 풀 문제 수</label>
+      <div class="count-selector">
+        <button class="count-btn" data-val="5">5문제</button>
+        <button class="count-btn active" data-val="10">10문제</button>
+        <button class="count-btn" data-val="15">15문제</button>
+        <button class="count-btn" data-val="20">20문제</button>
+      </div>
+      <input type="hidden" id="questionCount" value="10" />
+    </div>
+
+    <!-- 카테고리 선택 -->
+    <div class="form-group">
+      <label><i class="fa-solid fa-folder-open"></i> 카테고리 선택</label>
+      <div id="categoryList" class="category-list">
+        <!-- JS로 동적 렌더링 -->
+        <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</div>
+      </div>
+    </div>
+
+    <button id="startBtn" class="btn btn-primary btn-lg" disabled>
+      <i class="fa-solid fa-play"></i> 시험 시작
+    </button>
+  </section>
+
+  <!-- 카테고리 설명 -->
+  <section class="info-grid">
+    <div class="info-card">
+      <div class="info-icon network"><i class="fa-solid fa-network-wired"></i></div>
+      <h3>네트워크</h3>
+      <p>OSI 모델, TCP/IP, 라우팅, 스위칭, 방화벽, DNS, DHCP 등 네트워크 핵심 개념</p>
+    </div>
+    <div class="info-card">
+      <div class="info-icon infra"><i class="fa-solid fa-cloud"></i></div>
+      <h3>인프라</h3>
+      <p>가상화, 컨테이너, 쿠버네티스, IaC, CI/CD, 모니터링 등 인프라 운영 지식</p>
+    </div>
+    <div class="info-card">
+      <div class="info-icon linux"><i class="fa-brands fa-linux"></i></div>
+      <h3>리눅스</h3>
+      <p>파일 권한, 프로세스 관리, 셸 명령어, 서비스 관리, 시스템 설정 등 리눅스 실무</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p><i class="fa-solid fa-code"></i> IT 문제은행 &copy; 2025 | Flask + MySQL</p>
+  </div>
+</footer>
+
+<script>
+/* ── 상수 ─────────────────────────────────────────────────────────────────── */
+const API_BASE = "/api";
+
+const CATEGORY_META = {
+  network: { label: "네트워크", icon: "fa-network-wired", color: "network" },
+  infra:   { label: "인프라",   icon: "fa-cloud",         color: "infra"   },
+  linux:   { label: "리눅스",   icon: "fa-brands fa-linux", color: "linux" },
+};
+
+let selectedCategory = null;
+let selectedCount     = 10;
+
+/* ── 카테고리 로드 ──────────────────────────────────────────────────────────── */
+async function loadCategories() {
+  const list = document.getElementById("categoryList");
+  list.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</div>';
+  try {
+    const res  = await fetch(`${API_BASE}/categories`);
+    if (!res.ok) throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+    const data = await res.json();
+
+    if (!data.categories || data.categories.length === 0) {
+      throw new Error("등록된 카테고리가 없습니다.");
+    }
+
+    list.innerHTML = "";
+    data.categories.forEach(cat => {
+      const meta = CATEGORY_META[cat.name] || { label: cat.name, icon: "fa-folder", color: "" };
+      const btn  = document.createElement("button");
+      btn.className   = `category-btn ${meta.color}`;
+      btn.dataset.cat = cat.name;
+      btn.innerHTML   = `
+        <i class="fa-solid ${meta.icon}"></i>
+        <span class="cat-label">${meta.label}</span>
+      `;
+      btn.addEventListener("click", () => selectCategory(cat.name, btn));
+      list.appendChild(btn);
+    });
+  } catch (e) {
+    list.innerHTML = `
+      <p class="error-msg">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        카테고리 로드 실패: ${e.message}
+      </p>
+      <button onclick="loadCategories()" class="btn btn-secondary" style="margin-top:12px">
+        <i class="fa-solid fa-rotate-right"></i> 다시 시도
+      </button>`;
+  }
+}
+
+function selectCategory(name, btn) {
+  document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedCategory = name;
+  checkReady();
+}
+
+/* ── 문제 수 버튼 ───────────────────────────────────────────────────────────── */
+document.querySelectorAll(".count-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".count-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedCount = parseInt(btn.dataset.val);
+    document.getElementById("questionCount").value = selectedCount;
+    checkReady();
+  });
+});
+
+/* ── 시작 버튼 활성화 ───────────────────────────────────────────────────────── */
+function checkReady() {
+  const name = document.getElementById("userName").value.trim();
+  document.getElementById("startBtn").disabled = !(name && selectedCategory);
+}
+document.getElementById("userName").addEventListener("input", checkReady);
+
+/* ── 시험 시작 ──────────────────────────────────────────────────────────────── */
+document.getElementById("startBtn").addEventListener("click", () => {
+  const name = document.getElementById("userName").value.trim();
+  if (!name || !selectedCategory) return;
+
+  // 세션 초기화
+  sessionStorage.setItem("userName",    name);
+  sessionStorage.setItem("category",    selectedCategory);
+  sessionStorage.setItem("questionCount", selectedCount);
+
+  // URI 변경: /quiz/<category>?limit=<n>
+  window.location.href = `/quiz/${selectedCategory}?limit=${selectedCount}`;
+});
+
+/* ── 초기 실행 ──────────────────────────────────────────────────────────────── */
+loadCategories();
+</script>
+</body>
+</html>

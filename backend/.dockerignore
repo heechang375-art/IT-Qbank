@@ -1,0 +1,11 @@
+# backend/.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+*.db
+.git
+.gitignore
+README.md

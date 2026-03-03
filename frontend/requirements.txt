@@ -1,0 +1,13 @@
+# ─── Frontend requirements ────────────────────────────────────────────────────
+# Python 3.11.x 기준
+# Flask    3.0.x  프론트엔드 서빙 및 프록시
+# requests 2.31.x 백엔드 API 프록시 호출
+# gunicorn 22.0.x 프로덕션 WSGI 서버
+# python-dotenv 1.0.x 환경변수 로딩
+# ─────────────────────────────────────────────────────────────────────────────
+
+Flask==3.0.3
+Werkzeug==3.0.3
+requests==2.31.0
+gunicorn==22.0.0
+python-dotenv==1.0.1

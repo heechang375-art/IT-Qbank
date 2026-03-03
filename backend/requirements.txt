@@ -1,0 +1,22 @@
+# ─── 호환성 검증 완료 버전 (2024-12 기준) ────────────────────────────────────
+# Python 3.11.x 기준
+#
+# Flask         3.0.x  → Werkzeug 3.0.x 와 함께 사용 (Flask 3.x는 Werkzeug 3.x 필요)
+# Flask-CORS    4.0.x  → Flask 3.x 지원
+# Flask-SQLAlchemy 3.1.x → SQLAlchemy 2.x 지원
+# SQLAlchemy    2.0.x  → PyMySQL 1.1.x 와 함께 사용
+# PyMySQL       1.1.x  → mysql+pymysql 드라이버
+# gunicorn      22.0.x → Python 3.11 지원
+# python-dotenv 1.0.x  → .env 파일 로딩
+# cryptography  42.x   → PyMySQL SSL 지원 (선택)
+# ─────────────────────────────────────────────────────────────────────────────
+
+Flask==3.0.3
+Werkzeug==3.0.3
+Flask-Cors==4.0.1
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.31
+PyMySQL==1.1.1
+gunicorn==22.0.0
+python-dotenv==1.0.1
+cryptography==42.0.8
