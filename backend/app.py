@@ -355,30 +355,41 @@ def _save_generated_questions(rows):
     return inserted, skipped
 
 
-def _ensure_min_korean_questions(category, limit, difficulty):
+def _ensure_min_korean_questions(category, limit, difficulty, force_generate=False):
     current_ko = Question.query.filter_by(category=category).all()
     current_ko = [q for q in current_ko if is_korean_text(q.question)]
     needed = max(0, limit - len(current_ko))
-    if needed == 0:
+    generate_target = needed
+    if force_generate:
+        generate_target = max(generate_target, limit)
+
+    if generate_target == 0:
         return
 
     retries = 0
-    while needed > 0 and retries < 3:
+    generated_new = 0
+    while generate_target > 0 and retries < 3:
         retries += 1
         rows = []
         try:
-            rows = _call_groq_generate_questions(category, min(max(needed * 3, 10), 50), difficulty)
+            rows = _call_groq_generate_questions(category, min(max(generate_target * 3, 10), 50), difficulty)
         except Exception:
             rows = []
 
         inserted, _ = _save_generated_questions(rows)
-        if inserted == 0:
+        # fallback은 "정말 부족할 때"만 사용. force_generate 시엔 fallback으로 돌려막기하지 않음.
+        if inserted == 0 and needed > 0:
             inserted, _ = _save_generated_questions(_build_fallback_questions(category, needed))
         if inserted == 0:
             break
 
+        generated_new += inserted
         current_ko = [q for q in Question.query.filter_by(category=category).all() if is_korean_text(q.question)]
         needed = max(0, limit - len(current_ko))
+        if force_generate:
+            generate_target = max(needed, limit - generated_new)
+        else:
+            generate_target = needed
 
 
 _ensure_schema_and_seed()
@@ -452,9 +463,10 @@ def get_questions(category):
     source = request.args.get("source", "db").strip().lower()
     difficulty = request.args.get("difficulty", "mixed").strip().lower()
     shuffle = request.args.get("shuffle", "1") == "1"
+    fresh = request.args.get("fresh", "0") == "1"
 
     if source in {"ai", "auto"}:
-        _ensure_min_korean_questions(category, limit, difficulty)
+        _ensure_min_korean_questions(category, limit, difficulty, force_generate=(source == "ai" or fresh))
 
     questions = [q for q in Question.query.filter_by(category=category).all() if is_korean_text(q.question)]
     if not questions:

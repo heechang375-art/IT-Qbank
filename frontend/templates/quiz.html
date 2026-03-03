@@ -104,7 +104,7 @@ document.getElementById("displayCat").textContent  = CATEGORY_LABEL[CATEGORY] ||
 /* ── 문제 로드 ───────────────────────────────────────────────────────────────── */
 async function loadQuestions() {
   try {
-    const res  = await fetch(`${API_BASE}/questions/${CATEGORY}?limit=${LIMIT}&shuffle=1&source=auto`);
+    const res  = await fetch(`${API_BASE}/questions/${CATEGORY}?limit=${LIMIT}&shuffle=1&source=ai&fresh=1`);
     if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
     const data = await res.json();
 
