@@ -1,4 +1,13 @@
-﻿apiVersion: apps/v1
+## ─────────────────────────────────────────────────────────────
+## Backend Deployment
+## 수정사항:
+##   1. DB_WAIT_RETRIES: 20, DB_WAIT_DELAY: 5 으로 증가
+##      (MySQL 초기화 시간이 충분히 확보되도록)
+##   2. readinessProbe initialDelaySeconds: 45로 증가
+##      (MySQL 준비 전에 readiness 실패로 재시작되는 문제 방지)
+##   3. livenessProbe initialDelaySeconds: 90으로 증가
+## ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
@@ -20,9 +29,23 @@ spec:
       labels:
         app: backend
     spec:
+      # MySQL가 먼저 Ready 상태가 될 때까지 대기
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MySQL at mysql-service:3306..."
+              until nc -z mysql-service 3306; do
+                echo "MySQL not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "MySQL is ready."
       containers:
         - name: backend
-          image: collapse/quiz-backend:v0.5
+          image: collapse/quiz-backend:v0.6.2
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
@@ -67,6 +90,11 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: PURGE_DEFAULT_ON_BOOT
+            - name: PURGE_SHORT_ON_BOOT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: PURGE_SHORT_ON_BOOT
             - name: GEMINI_MODEL
               valueFrom:
                 configMapKeyRef:
@@ -95,9 +123,9 @@ spec:
             - name: PORT
               value: "5000"
             - name: DB_WAIT_RETRIES
-              value: "12"
+              value: "20"
             - name: DB_WAIT_DELAY
-              value: "2"
+              value: "5"
           resources:
             requests:
               memory: "128Mi"
@@ -109,7 +137,7 @@ spec:
             httpGet:
               path: /api/health
               port: 5000
-            initialDelaySeconds: 60
+            initialDelaySeconds: 90
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
@@ -117,7 +145,7 @@ spec:
             httpGet:
               path: /api/health
               port: 5000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 45
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 5

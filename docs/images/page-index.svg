@@ -1,13 +1,25 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0b1a3a" />
-      <stop offset="100%" stop-color="#102a5a" />
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <text x="80" y="130" fill="#a7b7ff" font-size="44" font-family="Segoe UI, Noto Sans KR, sans-serif">IT 문제은행</text>
-  <text x="80" y="190" fill="#f2f5ff" font-size="64" font-family="Segoe UI, Noto Sans KR, sans-serif">메인 페이지 예시</text>
-  <rect x="80" y="250" width="1040" height="300" rx="18" fill="#1b2f59" stroke="#37538a"/>
-  <text x="130" y="320" fill="#dbe4ff" font-size="30" font-family="Segoe UI, Noto Sans KR, sans-serif">이름 입력, 문제 수 선택, 카테고리 선택, 시험 시작</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#07162f"/>
+  <rect x="40" y="30" width="1120" height="70" rx="14" fill="#1d2944"/>
+  <text x="80" y="75" fill="#7e90ff" font-size="34" font-family="Segoe UI, Noto Sans KR, sans-serif">IT 문제은행</text>
+
+  <rect x="120" y="130" width="960" height="460" rx="20" fill="#1f2c46" stroke="#31486f"/>
+  <text x="170" y="190" fill="#d6e0ff" font-size="30" font-family="Segoe UI, Noto Sans KR, sans-serif">시험 설정</text>
+  <rect x="170" y="220" width="860" height="50" rx="10" fill="#0c1a36" stroke="#35527f"/>
+  <text x="190" y="255" fill="#c8d7ff" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">응시자 이름</text>
+
+  <text x="170" y="315" fill="#a9bde8" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">문제 수</text>
+  <rect x="170" y="330" width="110" height="48" rx="10" fill="#0c1a36" stroke="#35527f"/>
+  <rect x="295" y="330" width="110" height="48" rx="10" fill="#5b54f7"/>
+  <rect x="420" y="330" width="110" height="48" rx="10" fill="#0c1a36" stroke="#35527f"/>
+  <rect x="545" y="330" width="110" height="48" rx="10" fill="#0c1a36" stroke="#35527f"/>
+  <text x="202" y="362" fill="#dbe6ff" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">5문제</text>
+  <text x="322" y="362" fill="#ffffff" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">10문제</text>
+  <text x="447" y="362" fill="#dbe6ff" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">15문제</text>
+  <text x="572" y="362" fill="#dbe6ff" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">20문제</text>
+
+  <text x="170" y="425" fill="#a9bde8" font-size="24" font-family="Segoe UI, Noto Sans KR, sans-serif">카테고리 선택</text>
+  <text x="170" y="462" fill="#ff4c62" font-size="30" font-family="Segoe UI, Noto Sans KR, sans-serif">⚠ 카테고리 로드 실패: 서버 응답 오류 (HTTP 503)</text>
+  <rect x="170" y="490" width="860" height="52" rx="12" fill="#2a395a" stroke="#415a8a"/>
+  <text x="205" y="526" fill="#e8efff" font-size="30" font-family="Segoe UI, Noto Sans KR, sans-serif">다시 시도</text>
 </svg>

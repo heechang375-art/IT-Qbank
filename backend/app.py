@@ -9,6 +9,8 @@ import random
 import re
 import socket
 import time
+import ssl
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -35,13 +37,18 @@ USE_SQLITE_FALLBACK = os.getenv("USE_SQLITE_FALLBACK", "true").lower() == "true"
 
 # Gemini config
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL", "https://generativelanguage.googleapis.com/v1beta/models")
+GEMINI_MODEL_CANDIDATES = os.getenv(
+    "GEMINI_MODEL_CANDIDATES",
+    "gemini-1.5-flash-latest,gemini-1.5-flash",
+)
 GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "8"))
 AI_REQUEST_BUDGET_SEC = int(os.getenv("AI_REQUEST_BUDGET_SEC", "20"))
 
 # Maintenance config
 PURGE_DEFAULT_ON_BOOT = os.getenv("PURGE_DEFAULT_ON_BOOT", "true").lower() == "true"
+PURGE_SHORT_ON_BOOT = os.getenv("PURGE_SHORT_ON_BOOT", "true").lower() == "true"
 
 VALID_CATEGORIES = {"network", "infra", "linux"}
 CATEGORY_LABEL = {
@@ -198,6 +205,38 @@ def _cleanup_legacy_variant_questions():
     db.session.commit()
 
 
+def _text_score(value):
+    text = _normalize_text(value)
+    if not text:
+        return 0
+    # Ignore whitespace and common separators for rough quality scoring.
+    return len(re.sub(r"[\s\-\_\.\,\(\)\[\]\:\/]+", "", text))
+
+
+def _is_low_quality_question(row):
+    q_len = _text_score(row.question)
+    e_len = _text_score(row.explanation)
+    c_lens = [_text_score(row.choice_a), _text_score(row.choice_b), _text_score(row.choice_c), _text_score(row.choice_d)]
+    short_choices = sum(1 for x in c_lens if x <= 5)
+    avg_choice_len = sum(c_lens) / max(1, len(c_lens))
+
+    # Heuristic for very short one-liner items.
+    if e_len <= 8 and q_len <= 22:
+        return True
+    if q_len <= 22 and short_choices >= 3 and avg_choice_len <= 9:
+        return True
+    return False
+
+
+def _purge_low_quality_questions():
+    rows = Question.query.all()
+    delete_ids = [r.id for r in rows if _is_low_quality_question(r)]
+    if delete_ids:
+        Question.query.filter(Question.id.in_(delete_ids)).delete(synchronize_session=False)
+        db.session.commit()
+    return len(delete_ids)
+
+
 def _ensure_questions_created_at_column():
     driver = str(db.engine.url.drivername)
 
@@ -301,6 +340,8 @@ def _ensure_schema():
         purged = 0
         if PURGE_DEFAULT_ON_BOOT:
             purged = _purge_default_questions()
+        if PURGE_SHORT_ON_BOOT:
+            _purge_low_quality_questions()
         return purged
 
 
@@ -445,9 +486,37 @@ def _build_local_fallback_questions(category, count, start_index=1):
     return rows
 
 
+def _normalize_model_name(model_name):
+    m = _normalize_text(model_name)
+    if not m:
+        return ""
+    if m.endswith(":generateContent"):
+        m = m[: -len(":generateContent")]
+    if "/" in m:
+        m = m.split("/")[-1]
+    return m
+
+
+def _normalized_gemini_base_url():
+    base_url = _normalize_text(GEMINI_API_URL).rstrip("/")
+    if not base_url:
+        return "https://generativelanguage.googleapis.com/v1beta/models"
+    if "/models" not in base_url:
+        base_url = f"{base_url}/models"
+    return base_url
+
+
 def _call_gemini_generate_questions(category, count, difficulty):
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")
+
+    # 외부 HTTPS 연결 가능 여부 사전 확인 (NetworkPolicy 차단 감지용)
+    # connect timeout을 짧게(3초) 잡아서 차단된 경우 즉시 명확한 에러를 냄
+    if not _is_tcp_open("generativelanguage.googleapis.com", 443, timeout=3.0):
+        raise RuntimeError(
+            "NETWORK_BLOCKED: Cannot reach generativelanguage.googleapis.com:443. "
+            "Check NetworkPolicy backend-egress-mysql-and-https allows TCP 443 egress."
+        )
 
     prompt = (
         f"Category: {CATEGORY_LABEL.get(category, category)} ({category})\n"
@@ -486,13 +555,15 @@ def _call_gemini_generate_questions(category, count, difficulty):
     }
 
     model_candidates = []
-    for m in [GEMINI_MODEL, "gemini-2.0-flash"]:
+    configured_candidates = [x.strip() for x in GEMINI_MODEL_CANDIDATES.split(",") if x.strip()]
+    for m in [GEMINI_MODEL] + configured_candidates:
+        m = _normalize_model_name(m)
         if m and m not in model_candidates:
             model_candidates.append(m)
 
     body = None
     errors = []
-    base_url = GEMINI_API_URL.rstrip("/")
+    base_url = _normalized_gemini_base_url()
     for model_name in model_candidates:
         url = f"{base_url}/{model_name}:generateContent?{urllib.parse.urlencode({'key': GEMINI_API_KEY})}"
         req = urllib.request.Request(
@@ -505,8 +576,18 @@ def _call_gemini_generate_questions(category, count, difficulty):
             with urllib.request.urlopen(req, timeout=GEMINI_TIMEOUT) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             break
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8", errors="ignore")
+            except Exception:
+                detail = ""
+            errors.append(f"HTTP {e.code} model={model_name} {detail[:180]}")
+            if e.code in (401, 403, 429):
+                # Auth/quota errors are not improved by trying many more models.
+                break
         except Exception as e:
-            errors.append(str(e))
+            errors.append(f"model={model_name} {e}")
 
     if body is None:
         if any("429" in e for e in errors):
@@ -662,17 +743,29 @@ def health():
 @app.route("/api/ai/health", methods=["GET"])
 def ai_health():
     check = request.args.get("check", "0") == "1"
+    # 네트워크 연결 여부는 check 없이도 항상 표시 (진단 편의)
+    network_ok = _is_tcp_open("generativelanguage.googleapis.com", 443, timeout=3.0)
     payload = {
         "provider": "gemini",
         "configured": bool(GEMINI_API_KEY),
         "model": GEMINI_MODEL,
         "purged_default_count": PURGED_DEFAULT_COUNT,
+        "network_reachable": network_ok,
+        "network_target": "generativelanguage.googleapis.com:443",
     }
     if not check:
         return jsonify(payload), 200
 
     if not GEMINI_API_KEY:
         payload.update({"reachable": False, "error": "GEMINI_API_KEY is not configured"})
+        return jsonify(payload), 200
+
+    if not network_ok:
+        payload.update({
+            "reachable": False,
+            "error": "NETWORK_BLOCKED: TCP 443 to generativelanguage.googleapis.com is not reachable. "
+                     "Check NetworkPolicy backend-egress-mysql-and-https or cluster egress rules."
+        })
         return jsonify(payload), 200
 
     try:
@@ -751,37 +844,21 @@ def get_questions(category):
         ai_error = ""
         ai_errors = []
         generated_rows = []
-        target_new = min(limit, max(3, int(limit * 0.7)))
-
-        # Recent pool for fallback fill only (AI-first policy).
-        recent_cutoff = now_kst_naive() - timedelta(minutes=30)
-        recent_pool = (
-            Question.query.filter_by(category=category)
-            .filter(Question.created_at >= recent_cutoff)
-            .order_by(Question.id.desc())
-            .all()
-        )
-        recent_unique = []
-        seen_recent = set()
-        for q in recent_pool:
-            key = _question_hash(q.category, q.question)
-            if key in seen_recent:
-                continue
-            seen_recent.add(key)
-            recent_unique.append(q)
+        # AI-first: try to fill the whole requested count from API-generated questions.
+        target_new = limit
 
         seen_hash = set()
         ai_started_at = time.monotonic()
         attempts = 0
         while (
             len(generated_rows) < target_new
-            and attempts < 2
+            and attempts < 3
             and (time.monotonic() - ai_started_at) < AI_REQUEST_BUDGET_SEC
         ):
             attempts += 1
             needed = target_new - len(generated_rows)
-            # Keep each request small to avoid long model latency.
-            batch_size = min(max(needed + 1, 3), 6)
+            # batch_size: 최대 8로 완화해서 10문제 요청 시 2번 내로 완료 가능하게.
+            batch_size = min(max(needed, 3), 8)
             try:
                 batch = _call_gemini_generate_questions(category, batch_size, difficulty)
                 for row in batch:
@@ -812,44 +889,13 @@ def get_questions(category):
             )
             for q in ai_rows:
                 key = _question_hash(q.category, q.question)
-                if key in seen_selected or key in exclude_hashes:
+                if key in seen_selected:
                     continue
+                # AI로 방금 생성된 문제는 exclude_hashes(기출) 필터를 적용하지 않음.
+                # 기출 필터는 DB 캐시 풀에서 뽑을 때만 적용해야 신규 문제가 보장됨.
                 selected.append(q)
                 seen_selected.add(key)
                 ai_count += 1
-                if len(selected) >= limit:
-                    break
-
-        if len(selected) < limit:
-            for q in recent_unique:
-                key = _question_hash(q.category, q.question)
-                if key in seen_selected or key in exclude_hashes:
-                    continue
-                selected.append(q)
-                seen_selected.add(key)
-                if len(selected) >= limit:
-                    break
-
-        if len(selected) < limit:
-            all_pool = Question.query.filter_by(category=category).order_by(Question.id.desc()).all()
-            for q in all_pool:
-                key = _question_hash(q.category, q.question)
-                if key in seen_selected or key in exclude_hashes:
-                    continue
-                selected.append(q)
-                seen_selected.add(key)
-                if len(selected) >= limit:
-                    break
-
-        # last resort: allow previously seen questions only when unavoidable
-        if len(selected) < limit:
-            all_pool = Question.query.filter_by(category=category).order_by(Question.id.desc()).all()
-            for q in all_pool:
-                key = _question_hash(q.category, q.question)
-                if key in seen_selected:
-                    continue
-                selected.append(q)
-                seen_selected.add(key)
                 if len(selected) >= limit:
                     break
 

@@ -20,6 +20,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "quizpassword")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 DB_NAME = os.getenv("DB_NAME", "quizdb")
+INIT_DB_SEED = os.getenv("INIT_DB_SEED", "false").lower() == "true"
 
 if DB_HOST == "db":
     try:
@@ -190,14 +191,17 @@ def init_db():
             cur.execute("SELECT COUNT(*) as cnt FROM questions")
             before_cnt = cur.fetchone()["cnt"]
 
-            sql = """
-                INSERT IGNORE INTO questions
-                    (category, question, choice_a, choice_b, choice_c, choice_d, answer, explanation, question_hash)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            payload = [q + (question_hash(q[0], q[1]),) for q in SAMPLE_QUESTIONS]
-            cur.executemany(sql, payload)
-            conn.commit()
+            if INIT_DB_SEED:
+                sql = """
+                    INSERT IGNORE INTO questions
+                        (category, question, choice_a, choice_b, choice_c, choice_d, answer, explanation, question_hash)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                payload = [q + (question_hash(q[0], q[1]),) for q in SAMPLE_QUESTIONS]
+                cur.executemany(sql, payload)
+                conn.commit()
+            else:
+                conn.commit()
 
             cur.execute("SELECT COUNT(*) as cnt FROM questions")
             after_cnt = cur.fetchone()["cnt"]

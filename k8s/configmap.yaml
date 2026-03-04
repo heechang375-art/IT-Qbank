@@ -1,4 +1,4 @@
-﻿apiVersion: v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
@@ -7,12 +7,14 @@ data:
   DB_HOST: "mysql-service"
   DB_PORT: "3306"
   FLASK_DEBUG: "false"
-  GEMINI_MODEL: "gemini-2.0-flash"
+  GEMINI_MODEL: "gemini-1.5-flash"
+  GEMINI_MODEL_CANDIDATES: "gemini-1.5-flash,gemini-2.0-flash"
   GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models"
   GEMINI_TIMEOUT: "8"
   AI_REQUEST_BUDGET_SEC: "20"
   PURGE_DEFAULT_ON_BOOT: "true"
-  USE_SQLITE_FALLBACK: "true"
+  PURGE_SHORT_ON_BOOT: "true"
+  USE_SQLITE_FALLBACK: "false"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -31,5 +33,3 @@ metadata:
   namespace: hc-quiz-bank
 data:
   TZ: "Asia/Seoul"
-
-

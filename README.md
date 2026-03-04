@@ -34,22 +34,32 @@ IT-Qbank/
 ## Kubernetes 배포 다이어그램
 ```mermaid
 flowchart TD
-    U[Internet / Browser] --> G[Gateway or Ingress]
-    G -->|/api/*| BS[backend-svc:5000]
-    G -->|/ , /quiz/* , /result/* , /history/*| FS[frontend-svc:8080]
+    U[Browser]
+    U --> NP[frontend-service NodePort :30080]
+    U --> GW[Gateway quiz-gateway :8000]
 
-    BS --> BD[backend Deployment]
-    FS --> FD[frontend Deployment]
+    GW -->|/api| BS[backend-service :5000 ClusterIP]
+    GW -->|/| FS[frontend-service :8080 NodePort]
+    NP --> FS
 
-    BD --> MS[mysql-svc:3306]
-    MS --> DB[(MySQL StatefulSet/PVC)]
+    FS --> FD[frontend Deployment replicas=2]
+    BS --> BD[backend Deployment replicas=1]
+    BD --> MS[mysql-service :3306 ClusterIP]
+    MS --> MD[mysql Deployment replicas=1]
+    MD --> PVC[(mysql-pvc 5Gi RWO)]
+
+    FCM[frontend-config ConfigMap] --> FD
+    BCM[backend-config ConfigMap] --> BD
+    BSEC[backend-secret] --> BD
+    DBCFG[db-config ConfigMap] --> MD
+    DBSEC[db-secret] --> MD
 ```
 
 ## Kubernetes 기본값
-- Namespace: `hc`
-- Gateway Host: `quiz-bank.com`
-- 프론트 경로: `/`, `/quiz/*`, `/result/*`, `/history/*`
-- 백엔드 API 경로: `/api/*`
+- Namespace: `hc-quiz-bank`
+- Gateway: `quiz-gateway` + `quiz-route`
+- Gateway 경로: `/api -> backend`, `/ -> frontend`
+- 프론트 서비스: `NodePort` (`30080`)
 
 ## Kubernetes 설정 파일(예시)
 - ConfigMap 예시: [configmap.example.yaml](c:/Users/campus3S026/IT-Qbank/k8s/examples/configmap.example.yaml)

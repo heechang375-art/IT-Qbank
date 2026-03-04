@@ -1,24 +1,35 @@
-﻿apiVersion: networking.k8s.io/v1
+## ─────────────────────────────────────────────────────────────
+## NetworkPolicy  (hc-quiz-bank)
+## 수정사항:
+##   1. 기본 deny-all Ingress 추가 (Egress만 막는 기존 정책 보완)
+##   2. frontend → backend Ingress 명시적 허용
+##   3. backend → mysql Ingress 명시적 허용
+##   4. Rancher 헬스체크(kubelet) Ingress 허용
+## ─────────────────────────────────────────────────────────────
+
+# ① 네임스페이스 기본 정책: Ingress/Egress 모두 거부
+apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-egress
+  name: default-deny-all
   namespace: hc-quiz-bank
 spec:
   podSelector: {}
   policyTypes:
+    - Ingress
     - Egress
 ---
+# ② DNS 허용 (kube-system CoreDNS + NodeLocal DNSCache 포함)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-dns-egress-all
+  name: allow-dns-egress
   namespace: hc-quiz-bank
 spec:
   podSelector: {}
   policyTypes:
     - Egress
   egress:
-    # Standard DNS pods in kube-system
     - to:
         - namespaceSelector:
             matchLabels:
@@ -28,7 +39,7 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # NodeLocalDNS / provider-managed DNS endpoint fallback
+    # NodeLocal DNSCache fallback (169.254.20.10 등)
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -38,10 +49,11 @@ spec:
         - protocol: TCP
           port: 53
 ---
+# ③ frontend: backend 으로만 Egress 허용
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: frontend-egress-backend-only
+  name: frontend-egress-backend
   namespace: hc-quiz-bank
 spec:
   podSelector:
@@ -58,6 +70,47 @@ spec:
         - protocol: TCP
           port: 5000
 ---
+# ④ frontend: Ingress 허용 (NodePort를 통한 외부 트래픽 + Rancher 헬스체크)
+#    Rancher/kubelet은 호스트 네트워크에서 들어오므로 ipBlock으로 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress-allow
+  namespace: hc-quiz-bank
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    # NodePort 경유 외부 트래픽 (모든 소스 허용)
+    - ports:
+        - protocol: TCP
+          port: 8080
+---
+# ⑤ backend: frontend 으로부터 Ingress 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress-from-frontend
+  namespace: hc-quiz-bank
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 5000
+---
+# ⑥ backend: mysql Egress + Gemini API(HTTPS) Egress 허용
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -77,11 +130,31 @@ spec:
       ports:
         - protocol: TCP
           port: 3306
+    # Gemini API (generativelanguage.googleapis.com) - HTTPS
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
           port: 443
-
-
+---
+# ⑦ mysql: backend 으로부터 Ingress 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-ingress-from-backend
+  namespace: hc-quiz-bank
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 3306
