@@ -48,7 +48,11 @@ def question_hash(category, question):
     return hashlib.sha256(base.encode("utf-8")).hexdigest()
 
 
-def wait_for_db(max_retries=30, delay=3):
+def wait_for_db(max_retries=None, delay=None):
+    if max_retries is None:
+        max_retries = int(os.getenv("DB_WAIT_RETRIES", "12"))
+    if delay is None:
+        delay = int(os.getenv("DB_WAIT_DELAY", "2"))
     for i in range(max_retries):
         try:
             conn = pymysql.connect(
@@ -58,6 +62,9 @@ def wait_for_db(max_retries=30, delay=3):
                 password=DB_PASSWORD,
                 db=DB_NAME,
                 charset="utf8mb4",
+                connect_timeout=2,
+                read_timeout=4,
+                write_timeout=4,
             )
             conn.close()
             print("[OK] DB connected")

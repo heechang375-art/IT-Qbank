@@ -1,4 +1,4 @@
-"""
+﻿"""
 Network/Infrastructure/Linux Quiz Bank - Backend API
 """
 
@@ -8,6 +8,7 @@ import os
 import random
 import re
 import socket
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -36,20 +37,21 @@ USE_SQLITE_FALLBACK = os.getenv("USE_SQLITE_FALLBACK", "true").lower() == "true"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL", "https://generativelanguage.googleapis.com/v1beta/models")
-GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "20"))
+GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "8"))
+AI_REQUEST_BUDGET_SEC = int(os.getenv("AI_REQUEST_BUDGET_SEC", "20"))
 
 # Maintenance config
 PURGE_DEFAULT_ON_BOOT = os.getenv("PURGE_DEFAULT_ON_BOOT", "true").lower() == "true"
 
 VALID_CATEGORIES = {"network", "infra", "linux"}
 CATEGORY_LABEL = {
-    "network": "네트워크",
-    "infra": "인프라",
-    "linux": "리눅스",
+    "network": "\ub124\ud2b8\uc6cc\ud06c",
+    "infra": "\uc778\ud504\ub77c",
+    "linux": "\ub9ac\ub205\uc2a4",
 }
 
 KST = timezone(timedelta(hours=9))
-KO_RE = re.compile(r"[가-힣]")
+KO_RE = re.compile(r"[\uac00-\ud7a3]")
 
 
 def now_kst_naive():
@@ -211,13 +213,20 @@ def _ensure_questions_created_at_column():
         )
         exists = db.session.execute(exists_sql, {"schema": DB_NAME}).scalar() or 0
         if int(exists) == 0:
-            db.session.execute(
-                db.text(
-                    "ALTER TABLE questions "
-                    "ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            try:
+                db.session.execute(
+                    db.text(
+                        "ALTER TABLE questions "
+                        "ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                    )
                 )
-            )
-            db.session.commit()
+                db.session.commit()
+            except Exception as e:
+                # Concurrent/legacy schema paths can hit duplicate-column race.
+                if "Duplicate column name 'created_at'" in str(e) or "(1060" in str(e):
+                    db.session.rollback()
+                else:
+                    raise
         return
 
     if "sqlite" in driver:
@@ -233,32 +242,32 @@ def _ensure_questions_created_at_column():
 def _default_bank_hashes():
     base_by_category = {
         "network": [
-            "OSI 계층 중 라우팅을 담당하는 계층은?",
-            "HTTPS 기본 포트는?",
-            "서브넷 마스크 /24에서 사용 가능한 호스트 수는?",
-            "DNS 기본 포트는?",
-            "UDP의 특징으로 옳은 것은?",
-            "라우터가 주로 동작하는 OSI 계층은?",
+            "OSI 怨꾩링 以??쇱슦?낆쓣 ?대떦?섎뒗 怨꾩링??",
+            "HTTPS 湲곕낯 ?ы듃??",
+            "?쒕툕??留덉뒪??/24?먯꽌 ?ъ슜 媛?ν븳 ?몄뒪???섎뒗?",
+            "DNS 湲곕낯 ?ы듃??",
+            "UDP???뱀쭠?쇰줈 ?녹? 寃껋??",
+            "?쇱슦?곌? 二쇰줈 ?숈옉?섎뒗 OSI 怨꾩링??",
         ],
         "infra": [
-            "Kubernetes의 최소 배포 단위는?",
-            "로드밸런서의 주요 역할은?",
-            "컨테이너와 VM의 차이로 맞는 것은?",
-            "Kubernetes Ingress의 역할은?",
-            "Prometheus의 주 용도는?",
-            "Terraform의 대표 범주는?",
+            "Kubernetes??理쒖냼 諛고룷 ?⑥쐞??",
+            "濡쒕뱶諛몃윴?쒖쓽 二쇱슂 ??븷??",
+            "而⑦뀒?대꼫? VM??李⑥씠濡?留욌뒗 寃껋??",
+            "Kubernetes Ingress????븷??",
+            "Prometheus??二??⑸룄??",
+            "Terraform?????踰붿＜??",
         ],
         "linux": [
-            "실행 중인 프로세스를 확인하는 명령은?",
-            "chmod 755 권한 설명으로 맞는 것은?",
-            "디스크 사용량을 보기 좋은 형태로 확인하는 명령은?",
-            "실시간 로그 추적 명령은?",
-            "포트 리스닝 상태 확인에 주로 쓰는 명령은?",
-            "권한 변경 명령은?",
-            "SSH 공개키 로그인에 사용되는 파일은?",
+            "?ㅽ뻾 以묒씤 ?꾨줈?몄뒪瑜??뺤씤?섎뒗 紐낅졊??",
+            "chmod 755 沅뚰븳 ?ㅻ챸?쇰줈 留욌뒗 寃껋??",
+            "?붿뒪???ъ슜?됱쓣 蹂닿린 醫뗭? ?뺥깭濡??뺤씤?섎뒗 紐낅졊??",
+            "?ㅼ떆媛?濡쒓렇 異붿쟻 紐낅졊??",
+            "?ы듃 由ъ뒪???곹깭 ?뺤씤??二쇰줈 ?곕뒗 紐낅졊??",
+            "沅뚰븳 蹂寃?紐낅졊??",
+            "SSH 怨듦컻??濡쒓렇?몄뿉 ?ъ슜?섎뒗 ?뚯씪??",
         ],
     }
-    prefixes = ["점검 문제:", "실무 문제:", "응용 문제:", "기초 문제:", "심화 문제:", "개념 문제:"]
+    prefixes = ["?먭? 臾몄젣:", "?ㅻТ 臾몄젣:", "?묒슜 臾몄젣:", "湲곗큹 臾몄젣:", "?ы솕 臾몄젣:", "媛쒕뀗 臾몄젣:"]
 
     out = set()
     for category, questions in base_by_category.items():
@@ -281,7 +290,12 @@ def _purge_default_questions():
 
 def _ensure_schema():
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            # Multi-worker bootstrap race (especially sqlite fallback) can hit table-already-exists.
+            if "already exists" not in str(e).lower():
+                raise
         _ensure_questions_created_at_column()
         _cleanup_legacy_variant_questions()
         purged = 0
@@ -305,19 +319,130 @@ def _safe_parse_questions_json(raw_text):
     except Exception:
         pass
 
-    # Try to extract JSON object boundaries.
+    # Try to extract first balanced JSON object boundaries.
     start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        candidate = text[start : end + 1]
-        try:
-            return json.loads(candidate)
-        except Exception:
-            pass
+    if start != -1:
+        depth = 0
+        end = -1
+        in_string = False
+        escaped = False
+        for idx, ch in enumerate(text[start:], start=start):
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = idx
+                    break
+
+        if end != -1:
+            candidate = text[start : end + 1]
+            try:
+                return json.loads(candidate)
+            except Exception:
+                pass
 
     # Last resort: normalize common trailing comma issue.
     normalized = re.sub(r",\s*([}\]])", r"\1", text)
     return json.loads(normalized)
+
+
+def _build_local_fallback_questions(category, count, start_index=1):
+    """Deterministic local fallback to avoid hard 502 when AI provider fails."""
+    bank = {
+        "linux": [
+            (
+                "\ub9ac\ub205\uc2a4 \uc11c\ubc84\uc5d0\uc11c \ud2b9\uc815 \ud3ec\ud2b8\uc758 LISTEN \uc0c1\ud0dc\ub97c \ud655\uc778\ud558\ub294 \ub370 \uac00\uc7a5 \uc801\uc808\ud55c \uba85\ub839\uc740?",
+                {"A": "ps aux", "B": "ss -tlnp", "C": "df -h", "D": "chmod 755"},
+                "B",
+                "ss -tlnp\ub294 \ub9ac\uc2a4\ub2dd \ud3ec\ud2b8\uc640 \uc5f0\uacb0\ub41c \ud504\ub85c\uc138\uc2a4\ub97c \ud655\uc778\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
+            ),
+            (
+                "\ub2e4\uc74c \uc911 \ud30c\uc77c \uc18c\uc720\uc790\uc5d0\uac8c\ub9cc \uc4f0\uae30 \uad8c\ud55c\uc744 \ubd80\uc5ec\ud558\uace0 \uadf8\ub8f9/\uae30\ud0c0\ub294 \uc77d\uae30\ub9cc \uac00\ub2a5\ud558\uac8c \uc124\uc815\ud558\ub294 \uad8c\ud55c \uac12\uc740?",
+                {"A": "755", "B": "744", "C": "700", "D": "664"},
+                "B",
+                "744\ub294 \uc18c\uc720\uc790 rwx, \uadf8\ub8f9 r--, \uae30\ud0c0 r-- \uc758\ubbf8\uc785\ub2c8\ub2e4.",
+            ),
+            (
+                "\uc2e4\ubb34\uc5d0\uc11c \ub85c\uadf8\ub97c \uc2e4\uc2dc\uac04 \ubaa8\ub2c8\ud130\ub9c1\ud558\uba74\uc11c \uc2e0\uaddc \ub77c\uc778\ub9cc \uacc4\uc18d \ubcf4\ub824\uba74 \uc5b4\ub5a4 \uba85\ub839\uc744 \uc0ac\uc6a9\ud574\uc57c \ud558\ub294\uac00?",
+                {"A": "tail -f", "B": "head -n 10", "C": "cat", "D": "lsblk"},
+                "A",
+                "tail -f\ub294 \ud30c\uc77c\uc758 \ub05d\ubd80\ubd84\uc744 \ucd94\uc801\ud558\uba70 \uc2e4\uc2dc\uac04 \ub85c\uadf8 \ud655\uc778\uc5d0 \uc801\ud569\ud569\ub2c8\ub2e4.",
+            ),
+        ],
+        "network": [
+            (
+                "OSI 7\uacc4\uce35 \uc911 IP \ub77c\uc6b0\ud305\uc774 \uc218\ud589\ub418\ub294 \uacc4\uce35\uc740?",
+                {"A": "\ubb3c\ub9ac \uacc4\uce35", "B": "\ub370\uc774\ud130\ub9c1\ud06c \uacc4\uce35", "C": "\ub124\ud2b8\uc6cc\ud06c \uacc4\uce35", "D": "\uc138\uc158 \uacc4\uce35"},
+                "C",
+                "\ub77c\uc6b0\ud305\uc740 3\uacc4\uce35(\ub124\ud2b8\uc6cc\ud06c \uacc4\uce35)\uc758 \ud575\uc2ec \uae30\ub2a5\uc785\ub2c8\ub2e4.",
+            ),
+            (
+                "DNS\uc758 \uae30\ubcf8 \uc11c\ube44\uc2a4 \ud3ec\ud2b8\ub85c \uc62c\ubc14\ub978 \uac83\uc740?",
+                {"A": "22", "B": "53", "C": "80", "D": "443"},
+                "B",
+                "DNS\ub294 \uc77c\ubc18\uc801\uc73c\ub85c UDP/TCP 53 \ud3ec\ud2b8\ub97c \uc0ac\uc6a9\ud569\ub2c8\ub2e4.",
+            ),
+            (
+                "UDP\uc5d0 \ub300\ud55c \uc124\uba85\uc73c\ub85c \uac00\uc7a5 \ud0c0\ub2f9\ud55c \uac83\uc740?",
+                {"A": "\uc5f0\uacb0 \uc218\ub9bd \ud6c4 \uc804\uc1a1\ud55c\ub2e4", "B": "\uc21c\uc11c\ub97c \ubcf4\uc7a5\ud55c\ub2e4", "C": "\uc624\ubc84\ud5e4\ub4dc\uac00 \uc791\uc544 \ube60\ub978 \ud3b8\uc774\ub2e4", "D": "\ud750\ub984 \uc81c\uc5b4\uac00 \ud544\uc218\ub2e4"},
+                "C",
+                "UDP\ub294 \ube44\uc5f0\uacb0\ud615 \ud504\ub85c\ud1a0\ucf5c\ub85c \uc9c0\uc5f0\uacfc \uc624\ubc84\ud5e4\ub4dc\uac00 \uc801\uc740 \ud3b8\uc785\ub2c8\ub2e4.",
+            ),
+        ],
+        "infra": [
+            (
+                "Kubernetes\uc5d0\uc11c Pod \uc678\ubd80 \ud2b8\ub798\ud53d \uc720\uc785\uc744 URL \uae30\ubc18\uc73c\ub85c \uc81c\uc5b4\ud558\ub294 \ub9ac\uc18c\uc2a4\ub294?",
+                {"A": "ConfigMap", "B": "Ingress/HTTPRoute", "C": "Secret", "D": "PVC"},
+                "B",
+                "Ingress \ub610\ub294 Gateway API\uc758 HTTPRoute\ub97c \ud1b5\ud574 \uacbd\ub85c/\ud638\uc2a4\ud2b8 \ub77c\uc6b0\ud305\uc744 \uad6c\uc131\ud569\ub2c8\ub2e4.",
+            ),
+            (
+                "\ub85c\ub4dc\ubc38\ub7f0\uc11c\uc758 \uc8fc\uc694 \ubaa9\uc801\uc73c\ub85c \uac00\uc7a5 \uc62c\ubc14\ub978 \uac83\uc740?",
+                {"A": "\ud30c\uc77c \uad8c\ud55c \ubcc0\uacbd", "B": "\ud2b8\ub798\ud53d \ubd84\uc0b0\uacfc \uac00\uc6a9\uc131 \ud5a5\uc0c1", "C": "\uc18c\uc2a4 \ucf54\ub4dc \ube4c\ub4dc", "D": "DNS \ub808\ucf54\ub4dc \uc0ad\uc81c"},
+                "B",
+                "\ub85c\ub4dc\ubc38\ub7f0\uc11c\ub294 \uc694\uccad\uc744 \ub2e4\uc218 \ub300\uc0c1\uc73c\ub85c \ubd84\uc0b0\ud558\uc5ec \ud655\uc7a5\uc131\uacfc \uc548\uc815\uc131\uc744 \ub192\uc785\ub2c8\ub2e4.",
+            ),
+            (
+                "IaC(Infrastructure as Code)\uc758 \uac15\uc810\uc73c\ub85c \uc801\uc808\ud55c \uac83\uc740?",
+                {"A": "\uad6c\uc131 \uc77c\uad00\uc131 \uc800\ud558", "B": "\uc791\uc5c5 \uc774\ub825 \ucd94\uc801 \ubd88\uac00", "C": "\uc7ac\ud604 \uac00\ub2a5\ud55c \uc778\ud504\ub77c \uad6c\uc131", "D": "\ubc30\ud3ec \uc790\ub3d9\ud654 \ubd88\uac00\ub2a5"},
+                "C",
+                "IaC\ub294 \ucf54\ub4dc \ub9ac\ubdf0\uc640 \ubc84\uc804\uad00\ub9ac\ub97c \ud1b5\ud574 \uc778\ud504\ub77c \uc7ac\ud604\uc131\uc744 \ub192\uc785\ub2c8\ub2e4.",
+            ),
+        ],
+    }
+
+    seeds = bank.get(category, [])
+    if not seeds:
+        return []
+
+    rows = []
+    for i in range(count):
+        q, choices, answer, exp = seeds[i % len(seeds)]
+        # Keep uniqueness without trailing "(n)" style that may be stripped by sanitizer.
+        suffix = f" -- \uc2dc\ub098\ub9ac\uc624 \ucf54\ub4dc {start_index + i}"
+        rows.append(
+            {
+                "category": category,
+                "question": _sanitize_question_text(f"{q}{suffix}"),
+                "choices": choices,
+                "answer": answer,
+                "explanation": exp,
+            }
+        )
+    return rows
 
 
 def _call_gemini_generate_questions(category, count, difficulty):
@@ -336,13 +461,19 @@ def _call_gemini_generate_questions(category, count, difficulty):
         "- No duplicate questions.\n"
         "- Mix choice style: not only one-word choices.\n"
         "- At least half of questions should include sentence-style choices.\n"
+        "- Make questions look like real certification exams (Korean practical exam style).\n"
+        "- Prefer scenario-based stems and practical operation/troubleshooting context.\n"
+        "- Include plausible distractors that are technically close, not obvious wrong answers.\n"
+        "- Keep exactly one best answer.\n"
+        "- Do not include labels like '(variation n)', 'example', 'sample' in question text.\n"
+        "- Keep explanation concise but exam-oriented: why correct and why other choices are wrong.\n"
     )
 
     payload = {
         "system_instruction": {
             "parts": [
                 {
-                    "text": "Return exactly one JSON object. Schema: {\"questions\":[{\"question\":\"...\",\"choices\":{\"A\":\"...\",\"B\":\"...\",\"C\":\"...\",\"D\":\"...\"},\"answer\":\"A\",\"explanation\":\"...\"}]}. All output text must be Korean."
+                    "text": "Return exactly one JSON object. Schema: {\"questions\":[{\"question\":\"...\",\"choices\":{\"A\":\"...\",\"B\":\"...\",\"C\":\"...\",\"D\":\"...\"},\"answer\":\"A\",\"explanation\":\"...\"}]}. All output text must be Korean. Use realistic exam tone and avoid any markdown/code fences."
                 }
             ]
         },
@@ -355,7 +486,7 @@ def _call_gemini_generate_questions(category, count, difficulty):
     }
 
     model_candidates = []
-    for m in [GEMINI_MODEL, "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash"]:
+    for m in [GEMINI_MODEL, "gemini-2.0-flash"]:
         if m and m not in model_candidates:
             model_candidates.append(m)
 
@@ -618,6 +749,7 @@ def get_questions(category):
 
     if source == "ai":
         ai_error = ""
+        ai_errors = []
         generated_rows = []
         target_new = min(limit, max(3, int(limit * 0.7)))
 
@@ -638,19 +770,31 @@ def get_questions(category):
             seen_recent.add(key)
             recent_unique.append(q)
 
-        try:
-            batch = _call_gemini_generate_questions(category, min(max(target_new + 2, 5), 12), difficulty)
-            seen_hash = set()
-            for row in batch:
-                qh = _question_hash(row["category"], row["question"])
-                if qh in seen_hash:
-                    continue
-                seen_hash.add(qh)
-                generated_rows.append(row)
-                if len(generated_rows) >= target_new:
-                    break
-        except Exception as e:
-            ai_error = str(e)
+        seen_hash = set()
+        ai_started_at = time.monotonic()
+        attempts = 0
+        while (
+            len(generated_rows) < target_new
+            and attempts < 2
+            and (time.monotonic() - ai_started_at) < AI_REQUEST_BUDGET_SEC
+        ):
+            attempts += 1
+            needed = target_new - len(generated_rows)
+            # Keep each request small to avoid long model latency.
+            batch_size = min(max(needed + 1, 3), 6)
+            try:
+                batch = _call_gemini_generate_questions(category, batch_size, difficulty)
+                for row in batch:
+                    qh = _question_hash(row["category"], row["question"])
+                    if qh in seen_hash:
+                        continue
+                    seen_hash.add(qh)
+                    generated_rows.append(row)
+                    if len(generated_rows) >= target_new:
+                        break
+            except Exception as e:
+                ai_error = str(e)
+                ai_errors.append(ai_error)
 
         inserted, skipped = _save_generated_questions(generated_rows) if generated_rows else (0, 0)
         generated_hashes = list({_question_hash(r["category"], r["question"]) for r in generated_rows})
@@ -709,17 +853,67 @@ def get_questions(category):
                 if len(selected) >= limit:
                     break
 
+        transient_extra = []
         if len(selected) < limit:
+            fallback_rows = _build_local_fallback_questions(category, limit - len(selected), start_index=len(selected) + 1)
+            fallback_inserted, fallback_skipped = _save_generated_questions(fallback_rows) if fallback_rows else (0, 0)
+            inserted += fallback_inserted
+            skipped += fallback_skipped
+            if fallback_rows:
+                fallback_hashes = {_question_hash(r["category"], r["question"]) for r in fallback_rows}
+                fallback_pool = (
+                    Question.query.filter_by(category=category)
+                    .filter(Question.question_hash.in_(list(fallback_hashes)))
+                    .order_by(Question.id.desc())
+                    .all()
+                )
+                for q in fallback_pool:
+                    key = _question_hash(q.category, q.question)
+                    if key in seen_selected:
+                        continue
+                    selected.append(q)
+                    seen_selected.add(key)
+                    if len(selected) >= limit:
+                        break
+
+        if len(selected) < limit:
+            # Ensure the API still returns requested count even if DB insert dedupe blocks fallback rows.
+            rows = _build_local_fallback_questions(category, limit - len(selected), start_index=1000 + len(selected))
+            for idx, row in enumerate(rows, start=1):
+                qh = _question_hash(category, row["question"])
+                if qh in seen_selected:
+                    continue
+                seen_selected.add(qh)
+                transient_extra.append(
+                    {
+                        "id": -(100000 + idx + len(transient_extra)),
+                        "category": row["category"],
+                        "question": row["question"],
+                        "choices": row["choices"],
+                    }
+                )
+                if len(selected) + len(transient_extra) >= limit:
+                    break
+
+        if len(selected) < limit:
+            if shuffle:
+                random.shuffle(selected)
             return jsonify(
                 {
-                    "error": "요청한 문제 수를 채우지 못했습니다.",
                     "category": category,
-                    "provider": provider if 'provider' in locals() else "gemini",
+                    "source": "ai",
+                    "provider": "degraded",
                     "requested": limit,
-                    "returned": len(selected),
-                    "ai_error": ai_error or "insufficient questions",
+                    "total": len(selected) + len(transient_extra),
+                    "ai_count": ai_count,
+                    "db_count": max(0, len(selected) - ai_count),
+                    "warning": ai_error or "insufficient questions",
+                    "ai_errors": ai_errors[-3:],
+                    "inserted_count": inserted,
+                    "duplicate_skipped_count": skipped,
+                    "questions": [q.to_dict(hide_answer=True) for q in selected] + transient_extra,
                 }
-            ), 502
+            ), 200
 
         db_count = max(0, len(selected) - ai_count)
         if ai_count > 0 and db_count > 0:
@@ -777,7 +971,7 @@ def get_questions(category):
     if len(selected) < limit:
         return jsonify(
             {
-                "error": "요청한 문제 수를 채우지 못했습니다.",
+                "error": "\uc694\uccad\ud55c \ubb38\uc81c \uc218\ub97c \ucc44\uc6b0\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.",
                 "category": category,
                 "requested": limit,
                 "returned": len(selected),
@@ -807,7 +1001,7 @@ def submit_answers():
     if "answers" not in data:
         return jsonify({"error": "answers field is required"}), 400
 
-    user_name = _normalize_text(data.get("user_name", "익명"))[:100] or "익명"
+    user_name = _normalize_text(data.get("user_name", "\uc775\uba85"))[:100] or "\uc775\uba85"
     quiz_category = _normalize_text(data.get("category", ""))[:50]
 
     answers = data["answers"]
@@ -939,3 +1133,6 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+
+

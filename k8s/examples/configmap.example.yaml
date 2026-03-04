@@ -9,8 +9,7 @@ data:
   FLASK_DEBUG: "false"
   GEMINI_MODEL: "gemini-2.0-flash"
   GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models"
-  GEMINI_TIMEOUT: "8"
-  AI_REQUEST_BUDGET_SEC: "20"
+  GEMINI_TIMEOUT: "20"
   PURGE_DEFAULT_ON_BOOT: "true"
   USE_SQLITE_FALLBACK: "true"
 ---
@@ -22,7 +21,7 @@ metadata:
 data:
   BACKEND_URL: "http://backend-service:5000"
   FLASK_DEBUG: "false"
-  FRONTEND_PROXY_TIMEOUT: "60"
+  FRONTEND_PROXY_TIMEOUT: "75"
 ---
 apiVersion: v1
 kind: ConfigMap

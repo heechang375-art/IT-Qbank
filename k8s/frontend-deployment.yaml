@@ -1,8 +1,8 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
-  namespace: quiz-bank
+  namespace: hc-quiz-bank
   labels:
     app: frontend
 spec:
@@ -20,22 +20,9 @@ spec:
       labels:
         app: frontend
     spec:
-      initContainers:
-        - name: wait-for-backend
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              until nc -z backend-service 5000; do
-                echo "Backend 대기중..."
-                sleep 3
-              done
-              echo "Backend 연결 확인 완료"
       containers:
         - name: frontend
-          # ⚠️ YOUR_DOCKERHUB_USERNAME을 실제 값으로 변경하세요
-          image: YOUR_DOCKERHUB_USERNAME/quiz-frontend:latest
+          image: collapse/quiz-frontend:v0.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -43,27 +30,27 @@ spec:
             - name: BACKEND_URL
               valueFrom:
                 configMapKeyRef:
-                  name: quiz-config
+                  name: frontend-config
                   key: BACKEND_URL
             - name: FLASK_DEBUG
               valueFrom:
                 configMapKeyRef:
-                  name: quiz-config
+                  name: frontend-config
                   key: FLASK_DEBUG
             - name: FRONTEND_PROXY_TIMEOUT
               valueFrom:
                 configMapKeyRef:
-                  name: quiz-config
+                  name: frontend-config
                   key: FRONTEND_PROXY_TIMEOUT
             - name: PORT
               value: "8080"
           resources:
             requests:
               memory: "64Mi"
-              cpu: "50m"
+              cpu: "40m"
             limits:
               memory: "128Mi"
-              cpu: "200m"
+              cpu: "100m"
           livenessProbe:
             httpGet:
               path: /health
@@ -80,3 +67,5 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+
+

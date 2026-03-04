@@ -1,12 +1,14 @@
-apiVersion: v1
+﻿apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql-pvc
-  namespace: quiz-bank
+  namespace: hc-quiz-bank
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
-  # storageClassName: standard  # 클러스터 환경에 맞게 주석 해제
+  # storageClassName: standard  # Uncomment and set for your cluster.
+
+

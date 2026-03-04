@@ -17,7 +17,7 @@ app = Flask(__name__)
 # Local-first default. In docker, set BACKEND_URL=http://backend:5000
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 BACKEND_CANDIDATES = [BACKEND_URL, "http://localhost:5000", "http://127.0.0.1:5000", "http://backend:5000"]
-PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "75"))
+PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "60"))
 
 
 @app.route("/")

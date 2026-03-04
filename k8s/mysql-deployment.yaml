@@ -1,8 +1,8 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
-  namespace: quiz-bank
+  namespace: hc-quiz-bank
   labels:
     app: mysql
 spec:
@@ -11,7 +11,7 @@ spec:
     matchLabels:
       app: mysql
   strategy:
-    type: Recreate     # DB는 Recreate 전략 (데이터 일관성)
+    type: Recreate # Use Recreate strategy to keep DB volume consistency.
   template:
     metadata:
       labels:
@@ -19,40 +19,58 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: itqbank-mysql:8.0-charset
+          image: collapse/quiz-db:v0.1
           ports:
             - containerPort: 3306
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: quiz-secret
+                  name: db-secret
                   key: MYSQL_ROOT_PASSWORD
             - name: MYSQL_DATABASE
               valueFrom:
                 secretKeyRef:
-                  name: quiz-secret
+                  name: db-secret
                   key: DB_NAME
             - name: MYSQL_USER
               valueFrom:
                 secretKeyRef:
-                  name: quiz-secret
+                  name: db-secret
                   key: DB_USER
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: quiz-secret
+                  name: db-secret
                   key: DB_PASSWORD
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: TZ
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    for i in $(seq 1 30); do
+                      mysqladmin ping -h 127.0.0.1 --silent && break
+                      sleep 2
+                    done
+                    mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}'; ALTER USER '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}'; GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%'; FLUSH PRIVILEGES;" \
+                      || mysql -uroot -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}'; ALTER USER '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}'; GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%'; FLUSH PRIVILEGES;"
           volumeMounts:
             - name: mysql-storage
               mountPath: /var/lib/mysql
           resources:
             requests:
               memory: "256Mi"
-              cpu: "250m"
+              cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "384Mi"
+              cpu: "250m"
           livenessProbe:
             exec:
               command:
@@ -79,3 +97,4 @@ spec:
         - name: mysql-storage
           persistentVolumeClaim:
             claimName: mysql-pvc
+

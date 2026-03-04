@@ -106,3 +106,31 @@ LIMIT 20;
 2. `python -m py_compile backend/app.py backend/init_db.py frontend/app.py`
 3. `GET /api/history/<user>/<attempt_id>` 응답이 정상인지 확인
 4. `git status`로 문서/이미지 변경 파일 확인
+
+## 7. Kubernetes 배포 (hc 네임스페이스 기준)
+기본값:
+- Namespace: `hc-quiz-bank`
+- Gateway Host: `quiz-bank.com`
+
+예시 파일 복사:
+```bash
+copy k8s\examples\configmap.example.yaml k8s\configmap.yaml
+copy k8s\examples\secret.example.yaml k8s\secret.yaml
+```
+
+적용 순서:
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/hc-rq.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/mysql-pvc.yaml
+kubectl apply -f k8s/mysql-deployment.yaml
+kubectl apply -f k8s/mysql-service.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/frontend-service.yaml
+kubectl apply -f k8s/network-policy.yaml
+kubectl apply -f k8s/gateway.yaml
+```

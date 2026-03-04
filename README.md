@@ -31,6 +31,37 @@ IT-Qbank/
 └─ QuickStartGuide.md
 ```
 
+## Kubernetes 배포 다이어그램
+```mermaid
+flowchart TD
+    U[Internet / Browser] --> G[Gateway or Ingress]
+    G -->|/api/*| BS[backend-svc:5000]
+    G -->|/ , /quiz/* , /result/* , /history/*| FS[frontend-svc:8080]
+
+    BS --> BD[backend Deployment]
+    FS --> FD[frontend Deployment]
+
+    BD --> MS[mysql-svc:3306]
+    MS --> DB[(MySQL StatefulSet/PVC)]
+```
+
+## Kubernetes 기본값
+- Namespace: `hc`
+- Gateway Host: `quiz-bank.com`
+- 프론트 경로: `/`, `/quiz/*`, `/result/*`, `/history/*`
+- 백엔드 API 경로: `/api/*`
+
+## Kubernetes 설정 파일(예시)
+- ConfigMap 예시: [configmap.example.yaml](c:/Users/campus3S026/IT-Qbank/k8s/examples/configmap.example.yaml)
+- Secret 예시: [secret.example.yaml](c:/Users/campus3S026/IT-Qbank/k8s/examples/secret.example.yaml)
+- 실제 적용 전 `REPLACE_*` 값을 반드시 변경하세요.
+
+## API Path 동작 방식
+- 경로 매칭은 이미지가 자동 판별하는 것이 아니라, `Gateway/Ingress` 규칙이 판단합니다.
+- 브라우저가 페이지를 열 때는 주로 `frontend-svc`로 갑니다.
+- 문제 조회/채점/이력 조회처럼 데이터가 필요하면 프론트가 `/api/*`를 호출하고, 이 요청은 `backend-svc`로 라우팅됩니다.
+- 즉, "문제를 가져와야 하면 API로 간다"가 맞습니다.
+
 ## 환경 변수
 `.env.example`를 복사해 `.env`를 생성하세요.
 

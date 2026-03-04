@@ -1,0 +1,13 @@
+﻿# apiVersion: v1
+# kind: ResourceQuota
+# metadata:
+#   name: hc-quiz-bank-rq
+#   namespace: hc-quiz-bank
+# spec:
+#   hard:
+#     requests.cpu: "1"
+#     requests.memory: "2Gi"
+#     limits.cpu: "1"
+#     limits.memory: "2Gi"
+
+
