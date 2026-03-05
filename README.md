@@ -106,12 +106,75 @@ IT-Qbank/
 
 ![다이어그램](docs/images/diagram.png)
 
+---
+
+## Kubernetes 접속 방법 (두 가지)
+
+### 방법 A: NodePort (간단 테스트용, Gateway 없이)
+
+Rancher Desktop 등 로컬 환경에서 빠르게 테스트할 때 사용합니다.  
+`gateway.yaml`은 **적용하지 않아도** 됩니다.
+
+```
+브라우저 → NodeIP:30080 (frontend-service)
+           └─ /api/* 프록시 → backend-service:5000 (클러스터 내부)
+```
+
+- `frontend-service`의 `NodePort: 30080`으로 외부에 노출됩니다.
+- 브라우저의 API 요청(`/api/*`)은 **프론트엔드 컨테이너가 내부적으로** `backend-service:5000`으로 프록시합니다.
+- `BACKEND_URL=http://backend-service:5000`이 configmap에 설정되어 있어야 합니다.
+
+접속 URL:
+```
+http://<노드IP>:30080
+```
+
+---
+
+### 방법 B: Gateway API (권장, 운영 환경)
+
+`gateway.yaml`까지 적용하면 Gateway가 경로별로 트래픽을 직접 분기합니다.
+
+```
+브라우저 → Gateway:8000
+  ├─ /api/*  → backend-service:5000   (API 직접 라우팅, 프론트 프록시 우회)
+  └─ /       → frontend-service:8080  (HTML 페이지)
+```
+
+- `/api/*` 요청은 Gateway가 `backend-service`로 직접 라우팅하므로 **프론트엔드 프록시를 거치지 않습니다**.
+- 클러스터에 **Gateway API CRD**와 `gatewayClassName` (`traefik` 기본값)이 설치되어 있어야 합니다.
+- Gateway Pod 또는 LoadBalancer에 할당된 IP:8000으로 접속합니다.
+
+Gateway 주소 확인:
+```bash
+kubectl get gateway quiz-gateway -n hc-quiz-bank
+kubectl get svc -n hc-quiz-bank
+```
+
+접속 URL:
+```
+http://<Gateway-IP 또는 LoadBalancer-IP>:8000
+```
+
+> **gatewayClassName 변경이 필요한 경우**  
+> 클러스터에 traefik이 없다면 `k8s/gateway.yaml`의 `gatewayClassName: traefik`을  
+> 환경에 맞게 변경하세요 (예: `nginx`, `istio`, `cilium` 등).
+
+---
+
 ## Kubernetes 기본값
 
-- Namespace: `hc-quiz-bank`
-- Gateway: `quiz-gateway` + `quiz-route`
-- Gateway 경로: `/api → backend`, `/ → frontend`
-- 프론트 서비스: `NodePort` (`30080`)
+| 항목 | 값 |
+|------|-----|
+| Namespace | `hc-quiz-bank` |
+| Gateway 이름 | `quiz-gateway` |
+| Gateway 포트 | `8000` (HTTP) |
+| gatewayClassName | `traefik` |
+| NodePort (프론트) | `30080` |
+| `/api/*` 라우팅 대상 | `backend-service:5000` |
+| `/` 라우팅 대상 | `frontend-service:8080` |
+
+---
 
 ## Kubernetes 설정 파일 (예시)
 
@@ -121,11 +184,14 @@ IT-Qbank/
 
 ---
 
-## API Path 동작 방식
+## API 흐름 요약
 
-- 경로 매칭은 `Gateway/Ingress` 규칙이 판단합니다.
-- 브라우저가 페이지를 열 때는 `frontend-svc`로 라우팅됩니다.
-- 문제 조회/채점/이력 조회 등 데이터 요청 시 프론트가 `/api/*`를 호출하고, 이 요청은 `backend-svc`로 라우팅됩니다.
+| 접속 방식 | 브라우저 요청 경로 | 처리 주체 | 최종 도달 |
+|----------|------------------|----------|----------|
+| NodePort | `NodeIP:30080/api/*` | 프론트엔드 프록시 | `backend-service:5000` |
+| Gateway API | `Gateway:8000/api/*` | Gateway HTTPRoute | `backend-service:5000` |
+| NodePort | `NodeIP:30080/` | frontend-service | frontend Pod |
+| Gateway API | `Gateway:8000/` | Gateway HTTPRoute | `frontend-service:8080` |
 
 ---
 
@@ -144,7 +210,7 @@ IT-Qbank/
 | `GEMINI_API_URL` | Gemini API 엔드포인트 URL |
 | `GEMINI_TIMEOUT` | AI 요청 타임아웃 (초) |
 | `USE_SQLITE_FALLBACK` | MySQL 연결 실패 시 SQLite 대체 여부 |
-| `BACKEND_URL` | 프론트엔드가 백엔드를 호출할 URL |
+| `BACKEND_URL` | 프론트엔드가 백엔드를 호출할 URL (NodePort 환경에서 사용) |
 | `FRONTEND_PROXY_TIMEOUT` | 프론트 → 백엔드 프록시 타임아웃 (초) |
 | `FLASK_DEBUG` | Flask 디버그 모드 활성화 여부 |
 
@@ -211,3 +277,4 @@ LIMIT 10;
 - 사용자별 최근 풀이 문제 해시 제외 로직 적용
 - 이력 페이지에서 선택한 시도를 리뷰 화면으로 재조회 가능
 - KST 기준 시각 저장/응답(`created_at_kst`) 정리
+- Kubernetes 접속 방법 두 가지 정리: NodePort(테스트용) / Gateway API(운영 권장)
