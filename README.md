@@ -104,28 +104,7 @@ IT-Qbank/
 
 ## Kubernetes 배포 다이어그램
 
-```mermaid
-flowchart TD
-    U[Browser]
-    U --> NP[frontend-service NodePort :30080]
-    U --> GW[Gateway quiz-gateway :8000]
-
-    GW -->|/api| BS[backend-service :5000 ClusterIP]
-    GW -->|/| FS[frontend-service :8080 NodePort]
-    NP --> FS
-
-    FS --> FD[frontend Deployment replicas=2]
-    BS --> BD[backend Deployment replicas=1]
-    BD --> MS[mysql-service :3306 ClusterIP]
-    MS --> MD[mysql Deployment replicas=1]
-    MD --> PVC[(mysql-pvc 5Gi RWO)]
-
-    FCM[frontend-config ConfigMap] --> FD
-    BCM[backend-config ConfigMap] --> BD
-    BSEC[backend-secret] --> BD
-    DBCFG[db-config ConfigMap] --> MD
-    DBSEC[db-secret] --> MD
-```
+![다이어그램](docs/images/diagram.png)
 
 ## Kubernetes 기본값
 
