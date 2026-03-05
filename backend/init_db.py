@@ -77,20 +77,7 @@ def wait_for_db(max_retries=None, delay=None):
     return False
 
 
-SAMPLE_QUESTIONS = [
-    ("network", "OSI 계층 중 라우팅을 담당하는 계층은?", "물리 계층", "데이터링크 계층", "네트워크 계층", "전송 계층", "C", "IP 기반 라우팅은 네트워크 계층에서 수행됩니다."),
-    ("network", "HTTPS 기본 포트는?", "80", "443", "22", "53", "B", "HTTPS는 TCP 443 포트를 사용합니다."),
-    ("network", "DNS의 주된 역할은?", "IP를 MAC으로 변환", "도메인을 IP로 변환", "포트 스캔", "패킷 암호화", "B", "DNS는 도메인 이름을 IP 주소로 해석합니다."),
-    ("network", "UDP의 특징으로 옳은 것은?", "연결형 전송", "순서 보장", "비연결형/오버헤드 적음", "혼잡 제어 강함", "C", "UDP는 비연결형이며 오버헤드가 적습니다."),
-    ("infra", "Kubernetes의 최소 배포 단위는?", "Container", "Pod", "Node", "Namespace", "B", "Pod는 최소 배포 단위입니다."),
-    ("infra", "IaC 도구로 가장 적절한 것은?", "Terraform", "Wireshark", "Grafana", "Jenkins", "A", "Terraform은 대표적인 IaC 도구입니다."),
-    ("infra", "Ingress의 주요 역할은?", "볼륨 생성", "외부 HTTP/HTTPS 라우팅", "파드 스케일링", "노드 교체", "B", "Ingress는 외부 요청 라우팅 규칙을 제공합니다."),
-    ("infra", "로드밸런서의 주요 역할은?", "디스크 암호화", "트래픽 분산", "코드 빌드", "DNS 제거", "B", "요청 트래픽을 여러 서버에 분산합니다."),
-    ("linux", "실행 중인 프로세스를 확인하는 명령은?", "df -h", "ps aux", "chmod 755", "tail -f", "B", "ps aux는 실행 중인 프로세스를 출력합니다."),
-    ("linux", "chmod 755 권한 설명으로 맞는 것은?", "소유자 rwx, 그룹 r-x, 기타 r-x", "소유자 r--, 그룹 rwx, 기타 rwx", "모든 사용자 rwx", "소유자만 rwx", "A", "7은 rwx, 5는 r-x를 의미합니다."),
-    ("linux", "파일 소유자를 변경하는 명령은?", "chown", "chmod", "lsblk", "uptime", "A", "chown 명령으로 소유자/그룹을 변경합니다."),
-    ("linux", "SSH 공개키 로그인에 사용되는 파일은?", "~/.ssh/known_hosts", "~/.ssh/config", "~/.ssh/authorized_keys", "/etc/hosts", "C", "authorized_keys에 공개키를 등록해 인증합니다."),
-]
+# SAMPLE_QUESTIONS 제거 - AI API로만 문제 생성
 
 
 def init_db():
@@ -191,17 +178,7 @@ def init_db():
             cur.execute("SELECT COUNT(*) as cnt FROM questions")
             before_cnt = cur.fetchone()["cnt"]
 
-            if INIT_DB_SEED:
-                sql = """
-                    INSERT IGNORE INTO questions
-                        (category, question, choice_a, choice_b, choice_c, choice_d, answer, explanation, question_hash)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                payload = [q + (question_hash(q[0], q[1]),) for q in SAMPLE_QUESTIONS]
-                cur.executemany(sql, payload)
-                conn.commit()
-            else:
-                conn.commit()
+            conn.commit()
 
             cur.execute("SELECT COUNT(*) as cnt FROM questions")
             after_cnt = cur.fetchone()["cnt"]

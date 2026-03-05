@@ -580,3 +580,18 @@ a { color: inherit; text-decoration: none; }
   .score-summary { gap: 14px; }
   .summary-divider { display: none; }
 }
+
+/* ─── Badge Gold (high score) ───────────────────────────────────────────────── */
+.badge-gold {
+  background: rgba(245,158,11,0.15);
+  color: var(--warning);
+  border-color: rgba(245,158,11,0.3);
+}
+
+/* ─── History Preview (result page) ─────────────────────────────────────────── */
+.history-preview .section-title {
+  margin-bottom: 16px;
+}
+.history-preview .review-card {
+  padding: 16px 20px;
+}

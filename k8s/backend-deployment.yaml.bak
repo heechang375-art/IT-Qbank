@@ -32,7 +32,7 @@ spec:
       # initContainer 제거 - entrypoint.sh 내부에서 MySQL 대기 처리
       containers:
         - name: backend
-          image: collapse/quiz-backend:latest
+          image: collapse/quiz-backend:v0.6.2
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
@@ -77,6 +77,11 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: PURGE_DEFAULT_ON_BOOT
+            - name: PURGE_SHORT_ON_BOOT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: PURGE_SHORT_ON_BOOT
             - name: GEMINI_MODEL
               valueFrom:
                 configMapKeyRef:
@@ -92,6 +97,11 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: GEMINI_TIMEOUT
+            - name: AI_REQUEST_BUDGET_SEC
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: AI_REQUEST_BUDGET_SEC
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:

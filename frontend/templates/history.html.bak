@@ -15,15 +15,12 @@
         <i class="fa-solid fa-server"></i>
         <span>IT 문제은행</span>
       </a>
-      <nav style="display:flex; gap:8px; align-items:center;">
+      <div class="review-meta" style="display:flex; gap:8px;">
         <button id="backToResultBtn" class="btn btn-sm btn-secondary" style="display:none;">
-          <i class="fa-solid fa-chart-bar"></i> 결과 보기
+          <i class="fa-solid fa-chart-bar"></i> 결과로 돌아가기
         </button>
-        <a href="/history" class="btn btn-sm btn-secondary" id="allHistoryBtn">
-          <i class="fa-solid fa-list"></i> 전체 이력
-        </a>
         <a href="/" class="btn btn-sm btn-primary"><i class="fa-solid fa-house"></i> 홈</a>
-      </nav>
+      </div>
     </div>
   </header>
 

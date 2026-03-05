@@ -469,7 +469,7 @@ def _call_gemini_generate_questions(category, count, difficulty):
         "generationConfig": {
             "temperature": 0.35,
             "responseMimeType": "application/json",
-            "maxOutputTokens": 16384,
+            "maxOutputTokens": 3072,
         },
     }
 
@@ -784,13 +784,13 @@ def get_questions(category):
         attempts = 0
         while (
             len(generated_rows) < target_new
-            and attempts < 5
+            and attempts < 3
             and (time.monotonic() - ai_started_at) < AI_REQUEST_BUDGET_SEC
         ):
             attempts += 1
             needed = target_new - len(generated_rows)
             # batch_size: 최대 8로 완화해서 10문제 요청 시 2번 내로 완료 가능하게.
-            batch_size = min(max(needed, 3), 20)
+            batch_size = min(max(needed, 3), 8)
             try:
                 batch = _call_gemini_generate_questions(category, batch_size, difficulty)
                 for row in batch:
