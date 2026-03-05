@@ -1,4 +1,15 @@
-﻿apiVersion: gateway.networking.k8s.io/v1
+# ──────────────────────────────────────────────────────────────────
+# gateway.yaml
+# Gateway API 환경에서 사용하는 라우팅 설정
+# quiz-gateway: 포트 8000으로 HTTP 트래픽 수신 (gatewayClass: traefik)
+# quiz-route (HTTPRoute):
+#   /api/* → backend-service:5000  (API 요청)
+#   /      → frontend-service:8080 (HTML 페이지)
+#
+# ⚠️ Gateway API CRD가 없는 클러스터에서는 이 파일을 적용하지 마세요.
+#    Gateway 없이 NodePort만 사용 시 QuickStartGuide.md 3-2 섹션 참고
+# ──────────────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: quiz-gateway

@@ -1,4 +1,10 @@
-﻿apiVersion: v1
+# ──────────────────────────────────────────────────────────────────
+# backend-service.yaml
+# 백엔드 API를 클러스터 내부에만 노출하는 ClusterIP 서비스
+# frontend 프록시 또는 Gateway의 /api 경로에서만 접근 가능
+# 외부 직접 접근 불가 (보안)
+# ──────────────────────────────────────────────────────────────────
+apiVersion: v1
 kind: Service
 metadata:
   name: backend-service

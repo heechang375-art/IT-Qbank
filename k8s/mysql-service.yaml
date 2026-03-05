@@ -1,4 +1,9 @@
-﻿apiVersion: v1
+# ──────────────────────────────────────────────────────────────────
+# mysql-service.yaml
+# MySQL을 클러스터 내부에만 노출하는 ClusterIP 서비스
+# backend-deployment에서 DB_HOST=mysql-service 로 접근
+# ──────────────────────────────────────────────────────────────────
+apiVersion: v1
 kind: Service
 metadata:
   name: mysql-service

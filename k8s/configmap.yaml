@@ -1,3 +1,9 @@
+# ──────────────────────────────────────────────────────────────────
+# configmap.yaml
+# backend-config: DB 접속정보(호스트/포트), Gemini 모델/URL/타임아웃 등 비밀이 아닌 설정
+# frontend-config: 프론트가 백엔드를 찾는 BACKEND_URL 등 설정
+# 실제 비밀값(API Key, 패스워드)은 secret.yaml 에서 관리
+# ──────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: ConfigMap
 metadata:

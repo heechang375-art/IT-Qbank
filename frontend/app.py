@@ -1,7 +1,7 @@
-﻿"""
+"""
 Frontend Flask Application
-- Serve HTML templates
-- Proxy /api/* requests to backend API
+- HTML 템플릿 서빙: 각 페이지(시험설정/퀴즈/결과/리뷰/이력)를 렌더링
+- /api/* 프록시: 브라우저의 API 호출을 백엔드로 포워딩 (동일 오리진 처리용)
 """
 
 import os
@@ -14,37 +14,58 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Local-first default. In docker, set BACKEND_URL=http://backend:5000
+# ──────────────────────────────────────────────────────────
+# 백엔드 URL 설정
+# Docker: BACKEND_URL=http://backend:5000
+# Kubernetes (Gateway 없음): BACKEND_URL=http://backend-service.hc-quiz-bank.svc.cluster.local:5000
+# 로컬: http://localhost:5000 (기본값)
+# 연결 실패 시 BACKEND_CANDIDATES 순서대로 fallback 시도
+# ──────────────────────────────────────────────────────────
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 BACKEND_CANDIDATES = [BACKEND_URL, "http://localhost:5000", "http://127.0.0.1:5000", "http://backend:5000"]
 PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "60"))
 
 
+# ──────────────────────────────────────────────────────────
+# 페이지 라우트 - HTML 템플릿 렌더링
+# ──────────────────────────────────────────────────────────
+
 @app.route("/")
 def index():
+    """시험 설정 페이지: 이름 / 문제 수 / 카테고리 선택"""
     return render_template("index.html")
 
 
 @app.route("/quiz/<category>")
 def quiz(category):
+    """퀴즈 진행 페이지: 문제 표시 및 보기 선택"""
     return render_template("quiz.html")
 
 
 @app.route("/result")
 def result():
+    """시험 결과 페이지: 정답률 / 정답 수 / 오답 수 표시"""
     return render_template("result.html")
 
 
 @app.route("/review")
 def review():
+    """문제 다시보기 페이지: 정답/오답 표시 + 해설 제공"""
     return render_template("review.html")
 
 
 @app.route("/history")
 def history():
+    """내 풀이 이력 페이지: 사용자 이름으로 시도 이력 조회"""
     return render_template("history.html")
 
 
+# ──────────────────────────────────────────────────────────
+# /api/* 프록시 라우트
+# 브라우저 → 프론트(8080) → 백엔드(5000) 로 요청을 투명하게 전달
+# BACKEND_CANDIDATES 순서로 연결 시도, 모두 실패 시 503 반환
+# Gateway 환경에서는 이 프록시가 쓰이지 않고 Gateway가 직접 backend-service로 라우팅함
+# ──────────────────────────────────────────────────────────
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def proxy_api(path):
     params = request.args.to_dict()
@@ -81,17 +102,19 @@ def proxy_api(path):
                 content_type=resp.headers.get("Content-Type", "application/json"),
             )
         except requests.exceptions.ConnectionError:
-            continue
+            continue  # 다음 candidate로 시도
         except requests.exceptions.Timeout:
             return jsonify({"error": "backend timeout", "timeout_sec": PROXY_TIMEOUT, "attempted_backends": attempted}), 504
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    # 모든 candidate 연결 실패 → 화면에 "카테고리 로드 실패 HTTP 503" 표시됨
     return jsonify({"error": "backend connection failed", "attempted_backends": attempted}), 503
 
 
 @app.route("/health")
 def health():
+    """프론트엔드 헬스체크 엔드포인트 (Kubernetes readinessProbe 용)"""
     return jsonify({"status": "ok", "service": "frontend"}), 200
 
 

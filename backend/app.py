@@ -1,4 +1,4 @@
-﻿"""
+"""
 Network/Infrastructure/Linux Quiz Bank - Backend API
 """
 
@@ -24,9 +24,17 @@ from sqlalchemy.engine import Engine
 
 load_dotenv()
 
+# ──────────────────────────────────────────────────────────
+# Flask 앱 초기화 및 CORS 설정
+# 모든 Origin에 대해 CORS 허용 (Gateway/Ingress 뒤에서 동작하므로 프론트 도메인 제한 없음)
+# ──────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# ──────────────────────────────────────────────────────────
+# 환경 변수에서 DB / Gemini AI 설정값 로드
+# .env 또는 Kubernetes ConfigMap/Secret에서 주입됨
+# ──────────────────────────────────────────────────────────
 # DB config
 DB_USER = os.getenv("DB_USER", "quizuser")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "quizpassword")
@@ -35,7 +43,7 @@ DB_PORT = os.getenv("DB_PORT", "3306")
 DB_NAME = os.getenv("DB_NAME", "quizdb")
 USE_SQLITE_FALLBACK = os.getenv("USE_SQLITE_FALLBACK", "true").lower() == "true"
 
-# Gemini config
+# Gemini(AI) config
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL", "https://generativelanguage.googleapis.com/v1beta/models")
@@ -77,6 +85,11 @@ def _is_tcp_open(host, port, timeout=1.0):
         return False
 
 
+# ──────────────────────────────────────────────────────────
+# DB 연결 분기
+# MySQL 포트가 열려있으면 MySQL 사용, 아니면 SQLite fallback
+# Kubernetes 환경에서는 'db' 호스트명이 없을 경우 localhost로 fallback
+# ──────────────────────────────────────────────────────────
 if DB_HOST == "db":
     try:
         socket.gethostbyname("db")
@@ -111,6 +124,12 @@ def set_mysql_utf8mb4(dbapi_connection, _):
         pass
 
 
+# ──────────────────────────────────────────────────────────
+# ORM 모델 정의
+# Question: 문제 저장소 (카테고리/보기/정답/해설/해시)
+# User: 사용자 (이름 기준 식별)
+# QuizAttempt: 시도 이력 (채점 결과 + 답안 JSON 저장)
+# ──────────────────────────────────────────────────────────
 class Question(db.Model):
     __tablename__ = "questions"
 
@@ -176,6 +195,10 @@ def _sanitize_question_text(value):
     return _normalize_text(text)
 
 
+# ──────────────────────────────────────────────────────────
+# 문제 중복 방지: SHA-256 해시로 동일 문제 판별
+# 카테고리+문제 텍스트 정규화 후 해시 생성
+# ──────────────────────────────────────────────────────────
 def _question_hash(category, question):
     base = f"{_normalize_text(category).lower()}|{_sanitize_question_text(question).lower()}"
     return hashlib.sha256(base.encode("utf-8")).hexdigest()
@@ -425,6 +448,12 @@ def _normalized_gemini_base_url():
     return base_url
 
 
+# ──────────────────────────────────────────────────────────
+# Gemini API 호출: 카테고리별 한국어 객관식 문제 생성
+# NetworkPolicy로 TCP 443 egress가 차단된 경우 즉시 오류 반환
+# 모델 후보 순서대로 시도 (GEMINI_MODEL → GEMINI_MODEL_CANDIDATES)
+# maxOutputTokens=16384 로 20문제도 잘림 없이 수신 가능
+# ──────────────────────────────────────────────────────────
 def _call_gemini_generate_questions(category, count, difficulty):
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")
@@ -604,6 +633,10 @@ def _save_generated_questions(rows):
     return inserted, skipped
 
 
+# ──────────────────────────────────────────────────────────
+# 사용자 중복 회피: 최근 풀이 이력에서 문제 해시를 추출
+# 동일 사용자가 최근에 풀었던 문제를 재출제하지 않도록 제외 목록 구성
+# ──────────────────────────────────────────────────────────
 def _get_recent_user_question_hashes(user_name, limit_attempts=20):
     name = _normalize_text(user_name)
     if not name:
@@ -650,6 +683,11 @@ def _ensure_min_korean_questions(category, limit, difficulty):
 PURGED_DEFAULT_COUNT = _ensure_schema()
 
 
+# ──────────────────────────────────────────────────────────
+# API 라우트 정의
+# ──────────────────────────────────────────────────────────
+
+# [관리자] 전체 문제 삭제 - 하드코딩 문제 초기화용
 @app.route("/api/admin/purge-questions", methods=["DELETE"])
 def purge_all_questions():
     """DB의 모든 문제 삭제 - 하드코딩 문제 정리용"""
@@ -663,6 +701,7 @@ def purge_all_questions():
         return jsonify({"error": str(e)}), 500
 
 
+# [헬스체크] DB 연결 상태 확인
 @app.route("/api/health", methods=["GET"])
 def health():
     try:
@@ -672,6 +711,7 @@ def health():
         return jsonify({"status": "error", "db": str(e)}), 500
 
 
+# [AI 헬스체크] Gemini API 키 설정 여부 + 네트워크 연결 여부 확인
 @app.route("/api/ai/health", methods=["GET"])
 def ai_health():
     check = request.args.get("check", "0") == "1"
@@ -708,6 +748,7 @@ def ai_health():
     return jsonify(payload), 200
 
 
+# [AI 문제 생성] 카테고리/개수/난이도를 받아 Gemini로 문제를 생성하고 DB에 저장
 @app.route("/api/ai/questions", methods=["POST"])
 def generate_questions():
     data = request.get_json(silent=True) or {}
@@ -747,6 +788,7 @@ def generate_questions():
     ), 200
 
 
+# [카테고리 목록] DB에 저장된 카테고리별 문제 수 반환
 @app.route("/api/categories", methods=["GET"])
 def get_categories():
     rows = db.session.query(Question.category, db.func.count(Question.id).label("count")).group_by(Question.category).all()
@@ -755,6 +797,8 @@ def get_categories():
     return jsonify({"categories": categories}), 200
 
 
+# [문제 출제] source=ai면 Gemini 우선 생성 후 DB 보강, source=db면 DB에서만 출제
+# user 파라미터로 최근 기출 문제 제외 가능
 @app.route("/api/questions/<category>", methods=["GET"])
 def get_questions(category):
     category = category.strip().lower()
@@ -937,6 +981,7 @@ def get_questions(category):
     return jsonify({"category": category, "total": len(selected), "questions": [q.to_dict(hide_answer=True) for q in selected]}), 200
 
 
+# [정답 포함 문제 조회] 채점 후 리뷰 화면에서 정답/해설을 포함한 문제 상세 반환
 @app.route("/api/questions/<category>/all", methods=["GET", "POST"])
 def get_questions_with_answers(category):
     data = request.get_json(silent=True) or {}
@@ -951,6 +996,7 @@ def get_questions_with_answers(category):
     return jsonify({"category": category, "questions": [q.to_dict(hide_answer=False) for q in questions]}), 200
 
 
+# [답안 제출] 사용자 답안을 채점하고 결과를 DB에 저장 (QuizAttempt 생성)
 @app.route("/api/submit", methods=["POST"])
 def submit_answers():
     data = request.get_json() or {}
@@ -1028,6 +1074,7 @@ def submit_answers():
     ), 200
 
 
+# [풀이 이력 목록] 사용자 이름으로 시도 이력 목록 조회 (최신순)
 @app.route("/api/history/<user_name>", methods=["GET"])
 def get_user_history(user_name):
     name = _normalize_text(user_name)
@@ -1054,6 +1101,7 @@ def get_user_history(user_name):
     return jsonify({"user_name": user.name, "created_at_kst": user.created_at.strftime("%Y-%m-%d %H:%M:%S"), "attempts": result}), 200
 
 
+# [시도 상세 조회] 특정 attempt_id의 답안 전체(정답/오답 포함)를 반환 - 리뷰 화면에서 사용
 @app.route("/api/history/<user_name>/<int:attempt_id>", methods=["GET"])
 def get_attempt_detail(user_name, attempt_id):
     name = _normalize_text(user_name)

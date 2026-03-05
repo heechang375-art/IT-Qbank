@@ -1,4 +1,10 @@
-﻿apiVersion: v1
+# ──────────────────────────────────────────────────────────────────
+# frontend-service.yaml
+# NodePort :30080 으로 외부에서 직접 접근 가능 (Gateway 없는 환경용)
+# Gateway 환경에서는 Gateway가 이 서비스로 라우팅함
+# 접속 URL: http://<노드IP>:30080
+# ──────────────────────────────────────────────────────────────────
+apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
