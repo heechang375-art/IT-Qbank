@@ -66,6 +66,7 @@ def history():
 # BACKEND_CANDIDATES 순서로 연결 시도, 모두 실패 시 503 반환
 # Gateway 환경에서는 이 프록시가 쓰이지 않고 Gateway가 직접 backend-service로 라우팅함
 # ──────────────────────────────────────────────────────────
+# [API 프록시] GET/POST/PUT/PATCH/DELETE 모든 메서드 지원, JSON/raw 바디 자동 감지
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def proxy_api(path):
     params = request.args.to_dict()

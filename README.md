@@ -220,9 +220,18 @@ http://<Gateway-IP 또는 LoadBalancer-IP>:8000
 
 ## 실행 (Docker)
 
+**Windows:**
 ```bash
 cd IT-Qbank
 copy .env.example .env   # .env에서 GEMINI_API_KEY 입력 후 저장
+
+docker compose up -d --build
+```
+
+**Linux/macOS:**
+```bash
+cd IT-Qbank
+cp .env.example .env     # .env에서 GEMINI_API_KEY 입력 후 저장
 
 docker compose up -d --build
 ```
@@ -245,12 +254,13 @@ docker compose down
 | `GET` | `/api/health` | 백엔드 헬스 체크 |
 | `GET` | `/api/categories` | 카테고리 목록 조회 |
 | `GET` | `/api/questions/<category>` | 문제 출제 (`limit`, `shuffle`, `source`, `user` 파라미터) |
-| `GET` | `/api/questions/<category>/all` | 카테고리 전체 문제 조회 |
+| `GET/POST` | `/api/questions/<category>/all` | 카테고리 전체 문제 조회 (정답/해설 포함) |
 | `POST` | `/api/submit` | 답안 제출 및 채점 |
 | `GET` | `/api/history/<user_name>` | 사용자 풀이 이력 목록 |
 | `GET` | `/api/history/<user_name>/<attempt_id>` | 특정 시도 상세 조회 |
 | `GET` | `/api/ai/health` | AI(Gemini) 연결 상태 확인 |
 | `POST` | `/api/ai/questions` | AI 문제 직접 생성 요청 |
+| `DELETE` | `/api/admin/purge-questions` | DB 전체 문제 삭제 (관리자용) |
 
 ---
 
@@ -280,3 +290,7 @@ LIMIT 10;
 - 이력 페이지에서 선택한 시도를 리뷰 화면으로 재조회 가능
 - KST 기준 시각 저장/응답(`created_at_kst`) 정리
 - Kubernetes 접속 방법 두 가지 정리: NodePort(테스트용) / Gateway API(운영 권장)
+- `backend/app.py` 전체 함수에 기능별 주석 추가 (가독성 개선)
+- `/api/questions/<category>/all` 메서드 표기 수정: GET/POST 모두 지원
+- `/api/admin/purge-questions` API 문서에 추가
+- Docker 실행 명령 Windows/Linux(macOS) 분기 표기

@@ -1,9 +1,20 @@
 ﻿# QuickStartGuide
 
 ## 1. 가장 빠른 실행 (Docker)
+
+**Windows:**
 ```bash
 cd IT-Qbank
 copy .env.example .env
+# .env에서 GEMINI_API_KEY 값 입력
+
+docker compose up -d --build
+```
+
+**Linux/macOS:**
+```bash
+cd IT-Qbank
+cp .env.example .env
 # .env에서 GEMINI_API_KEY 값 입력
 
 docker compose up -d --build
@@ -30,7 +41,7 @@ GRANT ALL PRIVILEGES ON quizdb.* TO 'quizuser'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### 2-2. 백엔드
+### 2-2. 백엔드 (Windows)
 ```bash
 cd backend
 python -m venv venv
@@ -48,7 +59,25 @@ python init_db.py
 python app.py
 ```
 
-### 2-3. 프론트
+### 2-2. 백엔드 (Linux/macOS)
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_NAME=quizdb
+export DB_USER=quizuser
+export DB_PASSWORD=quizpassword
+export GEMINI_API_KEY=YOUR_GEMINI_KEY
+
+python init_db.py
+python app.py
+```
+
+### 2-3. 프론트 (Windows)
 ```bash
 cd frontend
 python -m venv venv
@@ -56,6 +85,17 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 set BACKEND_URL=http://localhost:5000
+python app.py
+```
+
+### 2-3. 프론트 (Linux/macOS)
+```bash
+cd frontend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+export BACKEND_URL=http://localhost:5000
 python app.py
 ```
 
@@ -106,8 +146,10 @@ LIMIT 20;
 
 ## 5. 문제 해결
 - AI 403/404: `GEMINI_API_KEY`, `GEMINI_API_URL`, 모델명(`GEMINI_MODEL`) 확인
-- 한글 깨짐: DB 저장이 아닌 터미널 문자셋 문제인지 먼저 확인
+- AI NETWORK_BLOCKED: `GET /api/ai/health?check=1`로 TCP 443 egress 차단 여부 확인 (Kubernetes NetworkPolicy 점검)
+- 한글 깨짐: DB 저장이 아닌 터미널 문자셋 문제인지 먼저 확인 (`chcp 65001`)
 - 출제 수 부족: backend 로그에서 AI 응답 파싱 오류/타임아웃 확인
+- SQLite 사용 중인 경우: `USE_SQLITE_FALLBACK=true` 상태에서 MySQL 연결 불가 시 자동 전환됨, `GET /api/health` 응답의 `db_mode` 필드로 확인 가능
 
 ---
 

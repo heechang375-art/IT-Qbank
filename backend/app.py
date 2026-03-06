@@ -114,6 +114,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
+# [MySQL 문자셋 설정] DB 연결 시마다 SET NAMES utf8mb4 실행 - 한글 깨짐 방지
 @event.listens_for(Engine, "connect")
 def set_mysql_utf8mb4(dbapi_connection, _):
     try:
@@ -180,14 +181,17 @@ class QuizAttempt(db.Model):
     created_at = db.Column(db.DateTime, default=now_kst_naive, nullable=False)
 
 
+# [텍스트 정규화] 불필요한 공백 제거 (연속 공백 → 단일 공백)
 def _normalize_text(value):
     return " ".join(str(value or "").split())
 
 
+# [문제 텍스트 정제] "(변형 1)", "(2)" 등 변형 표기 제거 정규식
 VARIANT_SUFFIX_RE = re.compile(r"\s*\([^)]*\d+[^)]*\)\s*$")
 TRAILING_BRACKET_RE = re.compile(r"\(\s*\d+\s*\)\s*$")
 
 
+# [문제 텍스트 정제] 변형 접미사 제거 후 정규화 - 중복 해시 판별용
 def _sanitize_question_text(value):
     text = _normalize_text(value)
     text = VARIANT_SUFFIX_RE.sub("", text)
@@ -236,6 +240,7 @@ def _text_score(value):
     return len(re.sub(r"[\s\-\_\.\,\(\)\[\]\:\/]+", "", text))
 
 
+# [품질 필터] 문제/보기/해설 길이 기준으로 저품질 문제 판별 (너무 짧은 문항 제외)
 def _is_low_quality_question(row):
     q_len = _text_score(row.question)
     e_len = _text_score(row.explanation)
@@ -251,6 +256,7 @@ def _is_low_quality_question(row):
     return False
 
 
+# [저품질 문제 일괄 삭제] DB에서 품질 기준 미달 문항 전체 제거 (부팅 시 자동 실행)
 def _purge_low_quality_questions():
     rows = Question.query.all()
     delete_ids = [r.id for r in rows if _is_low_quality_question(r)]
@@ -260,6 +266,7 @@ def _purge_low_quality_questions():
     return len(delete_ids)
 
 
+# [스키마 마이그레이션] questions 테이블에 created_at 컬럼이 없으면 자동 추가 (MySQL/SQLite 대응)
 def _ensure_questions_created_at_column():
     driver = str(db.engine.url.drivername)
 
@@ -301,6 +308,7 @@ def _ensure_questions_created_at_column():
             db.session.commit()
 
 
+# [기본 문제 해시 목록] 초기 시드/하드코딩 문제의 해시값 생성 - 부팅 시 자동 삭제 대상 식별용
 def _default_bank_hashes():
     base_by_category = {
         "network": [
@@ -340,6 +348,7 @@ def _default_bank_hashes():
     return out
 
 
+# [기본 문제 일괄 삭제] 하드코딩 시드 문제를 해시 기반으로 DB에서 제거 (PURGE_DEFAULT_ON_BOOT=true 시 실행)
 def _purge_default_questions():
     purge_hashes = _default_bank_hashes()
     rows = Question.query.filter(Question.question_hash.in_(list(purge_hashes))).all()
@@ -350,6 +359,7 @@ def _purge_default_questions():
     return len(delete_ids)
 
 
+# [DB 스키마 초기화] 앱 시작 시 테이블 생성, 마이그레이션, 중복/저품질 문제 정리까지 순서대로 실행
 def _ensure_schema():
     with app.app_context():
         try:
@@ -368,6 +378,7 @@ def _ensure_schema():
         return purged
 
 
+# [JSON 추출] AI 응답에 포함된 마크다운 코드펜스(```json) 제거 후 순수 JSON 텍스트 반환
 def _extract_json_text(value):
     text = _normalize_text(value)
     if text.startswith("```"):
@@ -376,6 +387,7 @@ def _extract_json_text(value):
     return text
 
 
+# [안전한 JSON 파싱] 표준 파싱 실패 시 중괄호 경계 탐색 / trailing comma 정규화로 재시도
 def _safe_parse_questions_json(raw_text):
     text = _extract_json_text(raw_text)
     try:
@@ -423,11 +435,13 @@ def _safe_parse_questions_json(raw_text):
     return json.loads(normalized)
 
 
+# [로컬 폴백 비활성화] 하드코딩 문제 제거 정책 - AI API 기반 출제만 사용 (항상 빈 리스트 반환)
 def _build_local_fallback_questions(category, count, start_index=1):
     """하드코딩 fallback 제거 - AI API 문제 출제만 사용."""
     return []
 
 
+# [모델명 정규화] "models/gemini-xxx:generateContent" 형식에서 순수 모델명 추출
 def _normalize_model_name(model_name):
     m = _normalize_text(model_name)
     if not m:
@@ -439,6 +453,7 @@ def _normalize_model_name(model_name):
     return m
 
 
+# [Gemini Base URL 정규화] 환경변수 URL 끝 슬래시 제거 및 '/models' 경로 자동 보완
 def _normalized_gemini_base_url():
     base_url = _normalize_text(GEMINI_API_URL).rstrip("/")
     if not base_url:
@@ -599,6 +614,7 @@ def _call_gemini_generate_questions(category, count, difficulty):
     return out
 
 
+# [AI 생성 문제 DB 저장] 중복 해시 체크 후 신규 문항만 questions 테이블에 INSERT, 삽입/스킵 수 반환
 def _save_generated_questions(rows):
     inserted = 0
     skipped = 0
@@ -665,6 +681,7 @@ def _get_recent_user_question_hashes(user_name, limit_attempts=20):
     return used
 
 
+# [한국어 문제 최소 수량 보장] DB에 한국어 문제가 limit 미만이면 Gemini API로 부족분 자동 보충
 def _ensure_min_korean_questions(category, limit, difficulty):
     current_ko = [q for q in Question.query.filter_by(category=category).all() if is_korean_text(q.question)]
     needed = max(0, limit - len(current_ko))
