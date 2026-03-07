@@ -10,20 +10,12 @@
   <style>
     body { overflow: hidden; }
     .result-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: calc(100vh - 70px);
-      padding: 0 20px;
+      display: flex; align-items: center; justify-content: center;
+      height: calc(100vh - 70px); padding: 0 20px;
     }
     .result-hero {
-      width: 100%;
-      max-width: 600px;
-      padding: 28px 32px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
+      width: 100%; max-width: 600px; padding: 28px 32px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
     }
     .score-ring-wrap { position: relative; width: 110px; height: 110px; }
     .score-ring { width: 110px; height: 110px; transform: rotate(-90deg); }
@@ -32,33 +24,40 @@
       transform: translate(-50%, -50%);
       text-align: center; line-height: 1.2;
     }
-    .score-pct { font-size: 1.4rem; font-weight: 700; color: var(--primary-light); display: block; }
+    .score-pct   { font-size: 1.4rem; font-weight: 700; color: var(--primary-light); display: block; }
     .score-label { font-size: 0.7rem; color: var(--text-muted); }
     .result-title { font-size: 1.3rem; font-weight: 700; margin: 0; }
-    .result-user { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+    .result-user  { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
     .score-summary { display: flex; gap: 24px; align-items: center; }
     .summary-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .summary-num { font-size: 1.4rem; font-weight: 700; }
-    .summary-label { font-size: 0.75rem; color: var(--text-muted); }
+    .summary-num  { font-size: 1.4rem; font-weight: 700; }
+    .summary-label{ font-size: 0.75rem; color: var(--text-muted); }
     .summary-item.correct .summary-num { color: var(--success); }
     .summary-item.correct i { color: var(--success); }
     .summary-item.wrong .summary-num { color: var(--danger); }
     .summary-item.wrong i { color: var(--danger); }
+    .summary-item.timer i { color: var(--warning); }
+    .summary-item.timer .summary-num { color: var(--warning); font-size: 1.1rem; }
     .summary-divider { width: 1px; height: 36px; background: var(--border); }
     .result-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .result-icon { font-size: 2rem; }
-    .result-icon.gold i { color: #f59e0b; }
+    .result-icon.gold   i { color: #f59e0b; }
     .result-icon.silver i { color: #94a3b8; }
     .result-icon.bronze i { color: #b45309; }
+    .btn-warning { background: var(--warning); color: #1a1a1a; }
+    .btn-warning:hover:not(:disabled) { background: #d97706; transform: translateY(-1px); }
   </style>
 </head>
 <body>
 
 <header class="site-header" style="padding:14px 0;">
-  <div class="container">
+  <div class="container" style="display:flex; align-items:center; justify-content:space-between;">
     <a href="/" class="logo">
       <i class="fa-solid fa-server"></i>
       <span>IT 문제은행</span>
+    </a>
+    <a href="/" class="btn btn-secondary" style="font-size:0.85rem; padding:8px 16px;">
+      <i class="fa-solid fa-house"></i> 홈으로
     </a>
   </div>
 </header>
@@ -72,7 +71,8 @@
     <div class="score-ring-wrap">
       <svg class="score-ring" viewBox="0 0 120 120">
         <circle class="ring-bg" cx="60" cy="60" r="52" />
-        <circle class="ring-bar" cx="60" cy="60" r="52" id="ringBar" stroke-dasharray="326.7" stroke-dashoffset="326.7" />
+        <circle class="ring-bar" cx="60" cy="60" r="52" id="ringBar"
+          stroke-dasharray="326.7" stroke-dashoffset="326.7" />
       </svg>
       <div class="score-text">
         <span class="score-pct" id="scorePct">0%</span>
@@ -98,6 +98,13 @@
         <span class="summary-num" id="totalCount">0</span>
         <span class="summary-label">전체</span>
       </div>
+      <div class="summary-divider"></div>
+      <!-- 소요 시간 (신규) -->
+      <div class="summary-item timer">
+        <i class="fa-solid fa-stopwatch"></i>
+        <span class="summary-num" id="elapsedTime">-</span>
+        <span class="summary-label">소요시간</span>
+      </div>
     </div>
 
     <div class="result-actions">
@@ -107,43 +114,50 @@
       <button id="historyBtn" class="btn btn-secondary">
         <i class="fa-solid fa-clock-rotate-left"></i> 이력 보기
       </button>
-      <a href="/" class="btn btn-secondary">
-        <i class="fa-solid fa-rotate-left"></i> 다시 풀기
-      </a>
+
     </div>
   </section>
 </div>
 
 <script>
-const result = JSON.parse(sessionStorage.getItem("quizResult") || "null");
+const result   = JSON.parse(sessionStorage.getItem("quizResult") || "null");
 const userName = sessionStorage.getItem("userName") || "익명";
 
 if (!result) {
   document.querySelector(".result-hero").innerHTML =
     `<p class="error-msg">결과 데이터가 없습니다. <a href="/">처음으로</a></p>`;
 } else {
-  const { total, correct, wrong, score_percent } = result;
+  const { total, correct, wrong, score_percent, results, elapsed_sec } = result;
 
-  document.getElementById("resultUser").textContent = `${userName} 님의 시험 결과`;
+  document.getElementById("resultUser").textContent   = `${userName} 님의 시험 결과`;
   document.getElementById("correctCount").textContent = correct;
-  document.getElementById("wrongCount").textContent = wrong;
-  document.getElementById("totalCount").textContent = total;
-  document.getElementById("scorePct").textContent = score_percent + "%";
+  document.getElementById("wrongCount").textContent   = wrong;
+  document.getElementById("totalCount").textContent   = total;
+  document.getElementById("scorePct").textContent     = score_percent + "%";
 
-  const icon = document.getElementById("resultIcon");
+  // 소요 시간 표시
+  if (elapsed_sec != null) {
+    const m = String(Math.floor(elapsed_sec / 60)).padStart(2, "0");
+    const s = String(elapsed_sec % 60).padStart(2, "0");
+    document.getElementById("elapsedTime").textContent = `${m}:${s}`;
+  }
+
+  // 결과 등급 아이콘
+  const icon  = document.getElementById("resultIcon");
   const title = document.getElementById("resultTitle");
   if (score_percent >= 80) {
-    icon.classList.add("gold"); title.textContent = "훌륭합니다";
+    icon.classList.add("gold");   title.textContent = "훌륭합니다!";
   } else if (score_percent >= 60) {
     icon.classList.add("silver"); title.textContent = "잘하셨습니다";
   } else {
     icon.classList.add("bronze"); title.textContent = "조금 더 학습해보세요";
   }
 
+  // 원형 차트 애니메이션
   const circumference = 326.7;
   setTimeout(() => {
     const bar = document.getElementById("ringBar");
-    bar.style.transition = "stroke-dashoffset 1.2s ease";
+    bar.style.transition     = "stroke-dashoffset 1.2s ease";
     bar.style.strokeDashoffset = circumference - (score_percent / 100) * circumference;
   }, 200);
 

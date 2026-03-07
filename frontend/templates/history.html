@@ -40,6 +40,18 @@
         </div>
       </div>
       <div id="historyInfo" class="subtitle"></div>
+      <!-- 누적 오답 출제 (조회 후 표시) -->
+      <div id="wrongRetrySection" style="display:none; margin:12px 0;">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span id="retryAllWrongLabel" style="color:var(--text-muted); font-size:0.9rem;">누적 오답</span>
+          <input id="wrongRetryCount" type="number" min="1" class="form-input"
+            style="width:80px; padding:8px 10px; text-align:center;"
+            placeholder="문제수" />
+          <button id="retryAllWrongBtn" class="btn" style="background:var(--warning);color:#1a1a1a;">
+            <i class="fa-solid fa-rotate-right"></i> 오답 출제
+          </button>
+        </div>
+      </div>
       <div id="historyList"></div>
     </section>
   </main>
@@ -80,13 +92,65 @@
         </div>
         <p class="rc-question">총 ${a.total}문제 &nbsp;|&nbsp; 정답 <strong style="color:var(--success)">${a.correct}</strong> &nbsp;|&nbsp; 오답 <strong style="color:var(--danger)">${a.wrong}</strong></p>
         <div class="subtitle" style="margin-top:4px;">응시 시각(KST): ${a.created_at_kst}</div>
-        <div style="margin-top:10px">
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="openAttempt('${encodeURIComponent(input.value.trim())}', ${a.attempt_id})">
             <i class="fa-solid fa-eye"></i> 이 시도 다시보기
           </button>
+          ${a.wrong > 0 ? `
+          <button class="btn btn-sm" style="background:var(--warning);color:#1a1a1a;" onclick="retryWrong('${encodeURIComponent(input.value.trim())}', ${a.attempt_id}, ${a.wrong})">
+            <i class="fa-solid fa-rotate-right"></i> 오답 ${a.wrong}개 다시 풀기
+          </button>` : ''}
         </div>
       </div>`;
     }).join("");
+  }
+
+  async function retryAllWrong() {
+    const user = input.value.trim();
+    if (!user) return;
+    const countInput = document.getElementById("wrongRetryCount");
+    const requestCount = parseInt(countInput.value) || 0;
+    if (requestCount < 1) {
+      alert("출제할 문제 수를 입력해주세요.");
+      countInput.focus();
+      return;
+    }
+    try {
+      const res  = await fetch(`${API_BASE}/history/${encodeURIComponent(user)}/wrong-ids`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!data.wrong_ids || data.wrong_ids.length === 0) {
+        alert("누적 오답 문제가 없습니다.");
+        return;
+      }
+      // 요청 수만큼만 랜덤으로 선택
+      const shuffled = data.wrong_ids.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, Math.min(requestCount, shuffled.length));
+      sessionStorage.setItem("wrongIds",  JSON.stringify(selected));
+      sessionStorage.setItem("retryMode", "1");
+      sessionStorage.setItem("category",  "network");
+      sessionStorage.setItem("userName",  user);
+      window.location.href = `/quiz/network?limit=${selected.length}`;
+    } catch (e) {
+      alert(`누적 오답 조회 실패: ${e.message}`);
+    }
+  }
+
+  async function retryWrong(userEncoded, attemptId, wrongCount) {
+    try {
+      const res  = await fetch(`${API_BASE}/history/${userEncoded}/${attemptId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const wrongIds = (data.results || []).filter(r => !r.is_correct).map(r => r.id);
+      if (!wrongIds.length) { alert("오답 데이터가 없습니다."); return; }
+      sessionStorage.setItem("wrongIds",  JSON.stringify(wrongIds));
+      sessionStorage.setItem("retryMode", "1");
+      sessionStorage.setItem("category",  data.category || "network");
+      sessionStorage.setItem("userName",  data.user_name || input.value.trim());
+      window.location.href = `/quiz/${data.category || "network"}?limit=${wrongIds.length}`;
+    } catch (e) {
+      alert(`오답 출제 실패: ${e.message}`);
+    }
   }
 
   async function openAttempt(userEncoded, attemptId) {
@@ -116,6 +180,20 @@
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       info.textContent = `${data.user_name} 님 이력 ${data.attempts.length}건`;
       renderRows(data.attempts);
+
+      // 누적 오답 버튼 표시
+      const totalWrong = data.attempts.reduce((sum, a) => sum + (a.wrong || 0), 0);
+      const wrongSection = document.getElementById("wrongRetrySection");
+      if (totalWrong > 0) {
+        document.getElementById("retryAllWrongLabel").textContent = `누적 오답 약 ${totalWrong}개 중`;
+        const countInput = document.getElementById("wrongRetryCount");
+        countInput.max   = totalWrong;
+        countInput.value = Math.min(10, totalWrong);
+        wrongSection.style.display = "block";
+        document.getElementById("retryAllWrongBtn").onclick = retryAllWrong;
+      } else {
+        wrongSection.style.display = "none";
+      }
     } catch (e) {
       info.textContent = `조회 실패: ${e.message}`;
       list.innerHTML = "";

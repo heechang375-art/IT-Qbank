@@ -58,7 +58,7 @@ services:
       DB_PASSWORD:  ${DB_PASSWORD:-quizpassword}
       USE_SQLITE_FALLBACK: true
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       GEMINI_API_URL: ${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}
       GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-45}
       PURGE_DEFAULT_ON_BOOT: ${PURGE_DEFAULT_ON_BOOT:-true}
@@ -92,7 +92,7 @@ services:
       - "8080:8080"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
     networks:
       - quiz_net
 

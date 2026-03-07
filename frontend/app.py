@@ -21,9 +21,15 @@ app = Flask(__name__)
 # 로컬: http://localhost:5000 (기본값)
 # 연결 실패 시 BACKEND_CANDIDATES 순서대로 fallback 시도
 # ──────────────────────────────────────────────────────────
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
-BACKEND_CANDIDATES = [BACKEND_URL, "http://localhost:5000", "http://127.0.0.1:5000", "http://backend:5000"]
-PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "60"))
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000").rstrip("/")
+# Docker 환경에서는 BACKEND_URL 하나만 사용
+# 로컬 직접 실행 시에는 localhost fallback 포함
+_extra = []
+if "localhost" not in BACKEND_URL and "127.0.0.1" not in BACKEND_URL:
+    _extra = ["http://localhost:5000"]
+BACKEND_CANDIDATES = list(dict.fromkeys([BACKEND_URL] + _extra))  # 중복 제거
+PROXY_TIMEOUT = int(os.getenv("FRONTEND_PROXY_TIMEOUT", "300"))
+PROXY_CONNECT_TIMEOUT = int(os.getenv("FRONTEND_PROXY_CONNECT_TIMEOUT", "5"))
 
 
 # ──────────────────────────────────────────────────────────
@@ -38,7 +44,7 @@ def index():
 
 @app.route("/quiz/<category>")
 def quiz(category):
-    """퀴즈 진행 페이지: 문제 표시 및 보기 선택"""
+    """퀴즈 진행 페이지: 문제 표시 및 보기 선택 (category=all이면 전체 혼합 모드)"""
     return render_template("quiz.html")
 
 
@@ -94,7 +100,7 @@ def proxy_api(path):
                 url=url,
                 params=params,
                 headers=headers,
-                timeout=(5, PROXY_TIMEOUT),
+                timeout=(PROXY_CONNECT_TIMEOUT, PROXY_TIMEOUT),
                 **req_kwargs,
             )
             return Response(
@@ -109,8 +115,12 @@ def proxy_api(path):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # 모든 candidate 연결 실패 → 화면에 "카테고리 로드 실패 HTTP 503" 표시됨
-    return jsonify({"error": "backend connection failed", "attempted_backends": attempted}), 503
+    # 모든 candidate 연결 실패 → backend가 아직 기동 중이거나 네트워크 문제
+    return jsonify({
+        "error": "backend connection failed",
+        "attempted_backends": attempted,
+        "hint": "백엔드가 아직 시작 중일 수 있습니다. 잠시 후 새로고침 해주세요."
+    }), 503
 
 
 @app.route("/health")

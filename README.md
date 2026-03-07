@@ -24,7 +24,7 @@ Flask + MySQL 기반의 IT 퀴즈 서비스입니다.
 
 이름 입력 → 문제 수(5/10/15/20) 선택 → 카테고리 선택(인프라/리눅스/네트워크) → **시험 시작** 클릭
 
-![시험 설정](docs/images/screen-index-ok.png)
+![시험 설정](docs/images/screen-index.png)
 
 ---
 
@@ -69,7 +69,7 @@ Flask + MySQL 기반의 IT 퀴즈 서비스입니다.
 이름으로 조회하면 시도 횟수, 카테고리, 문제 수, 정답/오답 수, 점수, 응시 시각(KST)을 확인할 수 있습니다.  
 각 시도의 **이 시도 다시보기** 버튼으로 해당 풀이의 리뷰 화면으로 이동합니다.
 
-![내 풀이 이력](docs/images/screen-history-full.png)
+![내 풀이 이력](docs/images/screen-history.png)
 
 ---
 

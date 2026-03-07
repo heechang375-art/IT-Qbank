@@ -18,6 +18,9 @@
     </a>
     <div class="review-meta">
       <a href="/result" class="btn btn-sm btn-secondary"><i class="fa-solid fa-chart-bar"></i> 결과로 돌아가기</a>
+      <button id="retryWrongBtn" class="btn btn-sm btn-warning" style="display:none">
+        <i class="fa-solid fa-rotate-right"></i> 오답만 다시 풀기
+      </button>
       <a href="/" class="btn btn-sm btn-primary"><i class="fa-solid fa-rotate-left"></i> 다시 풀기</a>
     </div>
   </div>
@@ -129,6 +132,20 @@ if (!result) {
   }
 
   renderReview("all");
+
+  // 오답 있으면 버튼 노출
+  const wrongResults = results.filter(r => !r.is_correct);
+  if (wrongResults.length > 0) {
+    const btn = document.getElementById("retryWrongBtn");
+    btn.style.display = "inline-flex";
+    btn.innerHTML     = `<i class="fa-solid fa-rotate-right"></i> 오답 ${wrongResults.length}개 다시 풀기`;
+    btn.addEventListener("click", () => {
+      const wrongIds = wrongResults.map(r => r.id);
+      sessionStorage.setItem("wrongIds",  JSON.stringify(wrongIds));
+      sessionStorage.setItem("retryMode", "1");
+      window.location.href = `/quiz/${sessionStorage.getItem("category") || "network"}?limit=${wrongIds.length}`;
+    });
+  }
 
   document.querySelectorAll(".filter-tab").forEach(tab => {
     tab.addEventListener("click", () => {

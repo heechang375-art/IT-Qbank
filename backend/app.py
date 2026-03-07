@@ -45,14 +45,14 @@ USE_SQLITE_FALLBACK = os.getenv("USE_SQLITE_FALLBACK", "true").lower() == "true"
 
 # Gemini(AI) config
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_API_URL = os.getenv("GEMINI_API_URL", "https://generativelanguage.googleapis.com/v1beta/models")
 GEMINI_MODEL_CANDIDATES = os.getenv(
     "GEMINI_MODEL_CANDIDATES",
-    "gemini-1.5-flash-latest,gemini-1.5-flash",
+    "gemini-2.5-flash",
 )
-GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "8"))
-AI_REQUEST_BUDGET_SEC = int(os.getenv("AI_REQUEST_BUDGET_SEC", "20"))
+GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "120"))
+AI_REQUEST_BUDGET_SEC = int(os.getenv("AI_REQUEST_BUDGET_SEC", "200"))
 
 # Maintenance config
 PURGE_DEFAULT_ON_BOOT = os.getenv("PURGE_DEFAULT_ON_BOOT", "true").lower() == "true"
@@ -473,13 +473,32 @@ def _call_gemini_generate_questions(category, count, difficulty):
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")
 
-    # 외부 HTTPS 연결 가능 여부 사전 확인 (NetworkPolicy 차단 감지용)
-    # connect timeout을 짧게(3초) 잡아서 차단된 경우 즉시 명확한 에러를 냄
-    if not _is_tcp_open("generativelanguage.googleapis.com", 443, timeout=3.0):
-        raise RuntimeError(
-            "NETWORK_BLOCKED: Cannot reach generativelanguage.googleapis.com:443. "
-            "Check NetworkPolicy backend-egress-mysql-and-https allows TCP 443 egress."
-        )
+    # 난이도별 배치 크기 결정 (어려울수록 응답이 길어져 타임아웃 위험)
+    # easy: 5문제, mixed: 4문제, hard: 3문제
+    if difficulty in ("hard", "어려움", "difficult"):
+        batch_max = 3
+    elif difficulty in ("easy", "쉬움"):
+        batch_max = 5
+    else:
+        batch_max = 4  # mixed 기본
+
+    if count > batch_max:
+        results = []
+        seen = set()
+        remaining = count
+        while remaining > 0:
+            batch_count = min(remaining, batch_max)
+            t0 = time.monotonic()
+            rows = _call_gemini_generate_questions(category, batch_count, difficulty)
+            elapsed = time.monotonic() - t0
+            print(f"[Gemini] category={category} batch={batch_count} difficulty={difficulty} elapsed={elapsed:.1f}s rows={len(rows)}", flush=True)
+            for r in rows:
+                key = r["question"][:30]
+                if key not in seen:
+                    seen.add(key)
+                    results.append(r)
+            remaining -= batch_count
+        return results
 
     prompt = (
         f"Category: {CATEGORY_LABEL.get(category, category)} ({category})\n"
@@ -499,6 +518,9 @@ def _call_gemini_generate_questions(category, count, difficulty):
         "- Keep exactly one best answer.\n"
         "- Do not include labels like '(variation n)', 'example', 'sample' in question text.\n"
         "- Keep explanation concise but exam-oriented: why correct and why other choices are wrong.\n"
+        "- Keep each explanation under 3 sentences. Do NOT write long paragraphs.\n"
+        "- Keep each choice text under 20 words.\n"
+        "- Even if the topic includes English commands (e.g. chmod, grep, ls), the question and explanation text must be written in Korean.\n"
     )
 
     payload = {
@@ -513,7 +535,10 @@ def _call_gemini_generate_questions(category, count, difficulty):
         "generationConfig": {
             "temperature": 0.35,
             "responseMimeType": "application/json",
-            "maxOutputTokens": 16384,
+            "maxOutputTokens": 8192,
+            "thinkingConfig": {
+                "thinkingBudget": 0,
+            },
         },
     }
 
@@ -527,37 +552,40 @@ def _call_gemini_generate_questions(category, count, difficulty):
     body = None
     errors = []
     base_url = _normalized_gemini_base_url()
+    import http.client as _http_client
     for model_name in model_candidates:
         url = f"{base_url}/{model_name}:generateContent?{urllib.parse.urlencode({'key': GEMINI_API_KEY})}"
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.netloc
+        path = parsed.path + ("?" + parsed.query if parsed.query else "")
+        post_data = json.dumps(payload).encode("utf-8")
         try:
-            with urllib.request.urlopen(req, timeout=GEMINI_TIMEOUT) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
+            conn = _http_client.HTTPSConnection(host, timeout=10)
+            conn.request("POST", path, body=post_data, headers={"Content-Type": "application/json"})
+            resp = conn.getresponse()
+            conn.sock.settimeout(GEMINI_TIMEOUT)
+            raw = resp.read().decode("utf-8")
+            conn.close()
+            if resp.status >= 400:
+                errors.append(f"HTTP {resp.status} model={model_name} {raw[:180]}")
+                if resp.status in (401, 403, 404, 429):
+                    break
+                continue
+            body = json.loads(raw)
             break
-        except urllib.error.HTTPError as e:
-            detail = ""
-            try:
-                detail = e.read().decode("utf-8", errors="ignore")
-            except Exception:
-                detail = ""
-            errors.append(f"HTTP {e.code} model={model_name} {detail[:180]}")
-            if e.code in (401, 403, 429):
-                # Auth/quota errors are not improved by trying many more models.
-                break
         except Exception as e:
             errors.append(f"model={model_name} {e}")
 
     if body is None:
         if any("429" in e for e in errors):
-            raise RuntimeError(next(e for e in errors if "429" in e))
+            raise RuntimeError("AI 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요. (429 Too Many Requests)")
         if any("403" in e for e in errors):
-            raise RuntimeError(next(e for e in errors if "403" in e))
-        raise RuntimeError(errors[-1] if errors else "Gemini request failed")
+            raise RuntimeError("AI API 키 권한 오류입니다. 관리자에게 문의해주세요. (403 Forbidden)")
+        if any("404" in e for e in errors):
+            raise RuntimeError("AI 모델을 찾을 수 없습니다. 관리자에게 문의해주세요. (404 Not Found)")
+        if any("503" in e for e in errors):
+            raise RuntimeError("AI 서버에 요청이 몰려 일시적으로 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요. (503 Service Unavailable)")
+        raise RuntimeError(errors[-1] if errors else "AI 문제 생성에 실패했습니다. 잠시 후 다시 시도해주세요.")
 
     candidates = body.get("candidates", [])
     if not candidates:
@@ -605,9 +633,9 @@ def _call_gemini_generate_questions(category, count, difficulty):
         )
 
     if not out:
-        # Retry once with a smaller request to reduce malformed long JSON.
-        if count > 3:
-            retry_rows = _call_gemini_generate_questions(category, max(3, count // 2), difficulty)
+        # 한국어 검증 실패 시 재시도 (리눅스 등 영문 명령어 혼재 카테고리 대응)
+        if count >= 1:
+            retry_rows = _call_gemini_generate_questions(category, count, difficulty)
             if retry_rows:
                 return retry_rows
         raise RuntimeError("Gemini returned no valid Korean questions")
@@ -814,7 +842,28 @@ def get_categories():
     return jsonify({"categories": categories}), 200
 
 
-# [문제 출제] source=ai면 Gemini 우선 생성 후 DB 보강, source=db면 DB에서만 출제
+# ──────────────────────────────────────────────────────────
+# DB 문제 수에 따른 출제 비율 결정
+# < 50문제  : AI 100% (DB 부족 → 전량 신규 생성)
+# 50~99문제 : AI 50% + DB 50%
+# 100~149문제: AI 30% + DB 70%
+# 150문제 이상: DB 100% (캐시만 사용, AI 호출 없음)
+# ──────────────────────────────────────────────────────────
+def _get_source_ratio(db_count, limit):
+    """DB 문제 수 기준으로 (ai_count, db_count_needed) 반환"""
+    if db_count >= 150:
+        return 0, limit           # DB 100%
+    elif db_count >= 100:
+        ai_n = max(1, round(limit * 0.3))
+        return ai_n, limit - ai_n  # AI 30% + DB 70%
+    elif db_count >= 50:
+        ai_n = max(1, round(limit * 0.5))
+        return ai_n, limit - ai_n  # AI 50% + DB 50%
+    else:
+        return limit, 0            # AI 100%
+
+
+# [문제 출제] DB 문제 수 기반으로 AI/DB 비율 자동 결정 후 출제
 # user 파라미터로 최근 기출 문제 제외 가능
 @app.route("/api/questions/<category>", methods=["GET"])
 def get_questions(category):
@@ -827,31 +876,47 @@ def get_questions(category):
     except ValueError:
         return jsonify({"error": "limit must be integer"}), 400
 
-    source = request.args.get("source", "db").strip().lower()
     difficulty = request.args.get("difficulty", "mixed").strip().lower()
-    shuffle = request.args.get("shuffle", "1") == "1"
-    user_name = request.args.get("user", "").strip()
+    shuffle    = request.args.get("shuffle", "1") == "1"
+    user_name  = request.args.get("user", "").strip()
     exclude_hashes = _get_recent_user_question_hashes(user_name)
 
-    if source == "ai":
-        ai_error = ""
-        ai_errors = []
-        generated_rows = []
-        # AI-first: try to fill the whole requested count from API-generated questions.
-        target_new = limit
+    # ── DB 한국어 문제 수 확인 → 비율 결정 ──────────────────
+    ko_questions = [q for q in Question.query.filter_by(category=category).all() if is_korean_text(q.question)]
+    db_pool_count = len(ko_questions)
+    ai_need, db_need = _get_source_ratio(db_pool_count, limit)
 
-        seen_hash = set()
-        ai_started_at = time.monotonic()
-        attempts = 0
+    selected      = []
+    seen_selected = set()
+    ai_count      = 0
+    ai_error      = ""
+    inserted      = 0
+    skipped       = 0
+
+    # ── AI 출제 ─────────────────────────────────────────────
+    if ai_need > 0:
+        # TCP 체크는 AI 호출 전 1회만 수행
+        if not _is_tcp_open("generativelanguage.googleapis.com", 443, timeout=3.0):
+            ai_error = (
+                "NETWORK_BLOCKED: Cannot reach generativelanguage.googleapis.com:443. "
+                "DB 문제로 대체합니다."
+            )
+            ai_need = 0
+            db_need = limit
+
+    if ai_need > 0:
+        generated_rows = []
+        seen_hash      = set()
+        ai_started_at  = time.monotonic()
+        attempts       = 0
+
         while (
-            len(generated_rows) < target_new
-            and attempts < 5
+            len(generated_rows) < ai_need
+            and attempts < 3
             and (time.monotonic() - ai_started_at) < AI_REQUEST_BUDGET_SEC
         ):
             attempts += 1
-            needed = target_new - len(generated_rows)
-            # batch_size: 최대 8로 완화해서 10문제 요청 시 2번 내로 완료 가능하게.
-            batch_size = min(max(needed, 3), 20)
+            batch_size = min(max(ai_need - len(generated_rows), 3), 20)
             try:
                 batch = _call_gemini_generate_questions(category, batch_size, difficulty)
                 for row in batch:
@@ -860,23 +925,18 @@ def get_questions(category):
                         continue
                     seen_hash.add(qh)
                     generated_rows.append(row)
-                    if len(generated_rows) >= target_new:
+                    if len(generated_rows) >= ai_need:
                         break
             except Exception as e:
                 ai_error = str(e)
-                ai_errors.append(ai_error)
+                break
 
-        inserted, skipped = _save_generated_questions(generated_rows) if generated_rows else (0, 0)
-        generated_hashes = list({_question_hash(r["category"], r["question"]) for r in generated_rows})
-
-        selected = []
-        seen_selected = set()
-        ai_count = 0
-
-        if generated_hashes:
+        if generated_rows:
+            inserted, skipped = _save_generated_questions(generated_rows)
+            gen_hashes = list({_question_hash(r["category"], r["question"]) for r in generated_rows})
             ai_rows = (
                 Question.query.filter_by(category=category)
-                .filter(Question.question_hash.in_(generated_hashes))
+                .filter(Question.question_hash.in_(gen_hashes))
                 .order_by(Question.id.desc())
                 .all()
             )
@@ -884,118 +944,67 @@ def get_questions(category):
                 key = _question_hash(q.category, q.question)
                 if key in seen_selected:
                     continue
-                # AI로 방금 생성된 문제는 exclude_hashes(기출) 필터를 적용하지 않음.
-                # 기출 필터는 DB 캐시 풀에서 뽑을 때만 적용해야 신규 문제가 보장됨.
                 selected.append(q)
                 seen_selected.add(key)
                 ai_count += 1
                 if len(selected) >= limit:
                     break
 
-        # AI 실패 시 DB 캐시에서 보충 (하드코딩 fallback 없음)
-        if len(selected) < limit:
-            db_pool = (
-                Question.query.filter_by(category=category)
-                .order_by(Question.id.desc())
-                .all()
-            )
-            for q in db_pool:
-                key = _question_hash(q.category, q.question)
-                if key in seen_selected:
-                    continue
-                if not is_korean_text(q.question):
-                    continue
-                selected.append(q)
-                seen_selected.add(key)
-                if len(selected) >= limit:
-                    break
-
-        if len(selected) < limit:
-            # AI 생성 실패 및 DB 캐시도 부족한 경우 명확한 오류 반환
-            err_msg = ai_error or "AI 문제 생성에 실패했습니다. GEMINI_API_KEY를 확인하거나 잠시 후 다시 시도해주세요."
-            if shuffle:
-                random.shuffle(selected)
-            return jsonify(
-                {
-                    "category": category,
-                    "source": "ai",
-                    "provider": "degraded",
-                    "requested": limit,
-                    "total": len(selected),
-                    "ai_count": ai_count,
-                    "db_count": max(0, len(selected) - ai_count),
-                    "warning": err_msg,
-                    "ai_errors": ai_errors[-3:],
-                    "inserted_count": inserted,
-                    "duplicate_skipped_count": skipped,
-                    "questions": [q.to_dict(hide_answer=True) for q in selected],
-                }
-            ), 200 if selected else 502
-
-        db_count = max(0, len(selected) - ai_count)
-        if ai_count > 0 and db_count > 0:
-            provider = "hybrid"
-        elif ai_count > 0:
-            provider = "gemini"
-        else:
-            provider = "cache-db"
+    # ── DB 출제 (비율분 + AI 부족분 보충) ───────────────────
+    if len(selected) < limit:
+        # 기출 제외 후 풀 구성, 없으면 기출 포함해서라도 채움
+        db_candidates = [
+            q for q in ko_questions
+            if _question_hash(q.category, q.question) not in seen_selected
+        ]
+        # 기출 제외 우선
+        fresh = [q for q in db_candidates if _question_hash(q.category, q.question) not in exclude_hashes]
+        reuse = [q for q in db_candidates if _question_hash(q.category, q.question) in exclude_hashes]
+        pool  = fresh + reuse
 
         if shuffle:
-            random.shuffle(selected)
+            random.shuffle(pool)
 
-        return jsonify(
-            {
-                "category": category,
-                "source": "ai",
-                "provider": provider,
-                "total": len(selected),
-                "requested": limit,
-                "ai_count": ai_count,
-                "db_count": db_count,
-                "warning": ai_error if ai_error else "",
-                "inserted_count": inserted,
-                "duplicate_skipped_count": skipped,
-                "questions": [q.to_dict(hide_answer=True) for q in selected],
-            }
-        ), 200
+        for q in pool:
+            key = _question_hash(q.category, q.question)
+            if key in seen_selected:
+                continue
+            q.question = _sanitize_question_text(q.question)
+            selected.append(q)
+            seen_selected.add(key)
+            if len(selected) >= limit:
+                break
 
-    if source == "auto":
-        try:
-            _ensure_min_korean_questions(category, limit, difficulty)
-        except Exception:
-            pass
-
-    raw_questions = Question.query.filter_by(category=category).all()
-    questions = [q for q in raw_questions if is_korean_text(q.question)]
-    if not questions:
-        return jsonify({"error": f"category '{category}' has no Korean questions"}), 404
+    if not selected:
+        err_msg = ai_error or "출제할 문제가 없습니다. GEMINI_API_KEY를 확인하거나 잠시 후 다시 시도해주세요."
+        return jsonify({"error": err_msg, "category": category}), 502
 
     if shuffle:
-        random.shuffle(questions)
+        random.shuffle(selected)
 
-    selected = []
-    seen_key = set()
-    for q in questions:
-        key = _question_hash(q.category, q.question)
-        if key in seen_key:
-            continue
-        q.question = _sanitize_question_text(q.question)
-        selected.append(q)
-        seen_key.add(key)
-        if len(selected) >= limit:
-            break
+    db_count_used = max(0, len(selected) - ai_count)
+    if ai_count > 0 and db_count_used > 0:
+        provider = "hybrid"
+    elif ai_count > 0:
+        provider = "gemini"
+    else:
+        provider = "cache-db"
 
-    if len(selected) < limit:
-        return jsonify(
-            {
-                "error": "\uc694\uccad\ud55c \ubb38\uc81c \uc218\ub97c \ucc44\uc6b0\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.",
-                "category": category,
-                "requested": limit,
-                "returned": len(selected),
-            }
-        ), 502
+    return jsonify({
+        "category":               category,
+        "source":                 provider,
+        "provider":               provider,
+        "total":                  len(selected),
+        "requested":              limit,
+        "ai_count":               ai_count,
+        "db_count":               db_count_used,
+        "db_pool_size":           db_pool_count,
+        "warning":                ai_error,
+        "inserted_count":         inserted,
+        "duplicate_skipped_count":skipped,
+        "questions":              [q.to_dict(hide_answer=True) for q in selected],
+    }), 200
 
-    return jsonify({"category": category, "total": len(selected), "questions": [q.to_dict(hide_answer=True) for q in selected]}), 200
 
 
 # [정답 포함 문제 조회] 채점 후 리뷰 화면에서 정답/해설을 포함한 문제 상세 반환
@@ -1011,6 +1020,118 @@ def get_questions_with_answers(category):
         query = query.filter(Question.id.in_(ids))
     questions = [q for q in query.all() if is_korean_text(q.question)]
     return jsonify({"category": category, "questions": [q.to_dict(hide_answer=False) for q in questions]}), 200
+
+
+# [오답 재출제] 이전 시도에서 틀린 문제 ID 목록을 받아 해당 문제만 반환
+@app.route("/api/retry-wrong", methods=["POST"])
+def retry_wrong_questions():
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids", [])
+    if not ids:
+        return jsonify({"error": "ids field is required"}), 400
+
+    questions = Question.query.filter(Question.id.in_(ids)).all()
+    questions = [q for q in questions if is_korean_text(q.question)]
+
+    if not questions:
+        return jsonify({"error": "해당 문제를 찾을 수 없습니다."}), 404
+
+    random.shuffle(questions)
+    return jsonify({
+        "total":     len(questions),
+        "source":    "retry",
+        "provider":  "cache-db",
+        "questions": [q.to_dict(hide_answer=True) for q in questions],
+    }), 200
+
+
+# [카테고리 혼합 출제] 전체(all) 카테고리에서 DB 비율 기반으로 골고루 섞어 출제
+@app.route("/api/questions/all/mixed", methods=["GET"])
+def get_mixed_questions():
+    try:
+        limit = min(max(int(request.args.get("limit", 10)), 1), 50)
+    except ValueError:
+        return jsonify({"error": "limit must be integer"}), 400
+
+    difficulty = request.args.get("difficulty", "mixed").strip().lower()
+    user_name  = request.args.get("user", "").strip()
+    exclude_hashes = _get_recent_user_question_hashes(user_name)
+
+    per_cat   = max(1, limit // len(VALID_CATEGORIES))
+    remainder = limit - per_cat * len(VALID_CATEGORIES)
+
+    selected      = []
+    seen_selected = set()
+    total_ai      = 0
+    total_inserted = 0
+
+    for i, cat in enumerate(sorted(VALID_CATEGORIES)):
+        cat_limit = per_cat + (1 if i < remainder else 0)
+
+        ko_questions  = [q for q in Question.query.filter_by(category=cat).all() if is_korean_text(q.question)]
+        db_pool_count = len(ko_questions)
+        ai_need, _    = _get_source_ratio(db_pool_count, cat_limit)
+
+        # AI 출제
+        if ai_need > 0 and _is_tcp_open("generativelanguage.googleapis.com", 443, timeout=3.0):
+            try:
+                rows = _call_gemini_generate_questions(cat, ai_need, difficulty)
+                ins, _ = _save_generated_questions(rows)
+                total_inserted += ins
+                gen_hashes = list({_question_hash(r["category"], r["question"]) for r in rows})
+                ai_rows = (
+                    Question.query.filter_by(category=cat)
+                    .filter(Question.question_hash.in_(gen_hashes))
+                    .order_by(Question.id.desc()).all()
+                )
+                for q in ai_rows:
+                    key = _question_hash(q.category, q.question)
+                    if key in seen_selected:
+                        continue
+                    selected.append(q)
+                    seen_selected.add(key)
+                    total_ai += 1
+                    if sum(1 for s in selected if s.category == cat) >= cat_limit:
+                        break
+            except Exception:
+                pass
+
+        # DB 출제 (부족분 보충)
+        cat_selected = sum(1 for s in selected if s.category == cat)
+        if cat_selected < cat_limit:
+            fresh = [q for q in ko_questions
+                     if _question_hash(q.category, q.question) not in seen_selected
+                     and _question_hash(q.category, q.question) not in exclude_hashes]
+            reuse = [q for q in ko_questions
+                     if _question_hash(q.category, q.question) not in seen_selected
+                     and _question_hash(q.category, q.question) in exclude_hashes]
+            random.shuffle(fresh); random.shuffle(reuse)
+            for q in fresh + reuse:
+                key = _question_hash(q.category, q.question)
+                if key in seen_selected:
+                    continue
+                q.question = _sanitize_question_text(q.question)
+                selected.append(q)
+                seen_selected.add(key)
+                if sum(1 for s in selected if s.category == cat) >= cat_limit:
+                    break
+
+    if not selected:
+        return jsonify({"error": "출제할 문제가 없습니다."}), 502
+
+    random.shuffle(selected)
+    db_used = max(0, len(selected) - total_ai)
+
+    return jsonify({
+        "category":       "mixed",
+        "provider":       "hybrid" if total_ai > 0 and db_used > 0 else ("gemini" if total_ai > 0 else "cache-db"),
+        "total":          len(selected),
+        "requested":      limit,
+        "ai_count":       total_ai,
+        "db_count":       db_used,
+        "inserted_count": total_inserted,
+        "questions":      [q.to_dict(hide_answer=True) for q in selected],
+    }), 200
 
 
 # [답안 제출] 사용자 답안을 채점하고 결과를 DB에 저장 (QuizAttempt 생성)
@@ -1148,6 +1269,42 @@ def get_attempt_detail(user_name, attempt_id):
             "results": results,
         }
     ), 200
+
+
+# [누적 오답 조회] 사용자의 전체 이력에서 오답 문제 ID를 중복 없이 수집해 반환
+@app.route("/api/history/<user_name>/wrong-ids", methods=["GET"])
+def get_user_wrong_ids(user_name):
+    name = _normalize_text(user_name)
+    user = User.query.filter_by(name=name).first()
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+
+    category = request.args.get("category", "").strip().lower()
+    limit    = min(max(int(request.args.get("limit", 50)), 1), 200)
+
+    query = QuizAttempt.query.filter_by(user_id=user.id)
+    if category and category in VALID_CATEGORIES:
+        query = query.filter_by(category=category)
+    attempts = query.order_by(QuizAttempt.created_at.desc()).limit(limit).all()
+
+    wrong_ids = []
+    seen = set()
+    for attempt in attempts:
+        try:
+            results = json.loads(attempt.answers_json or "[]")
+        except Exception:
+            continue
+        for r in results:
+            if not r.get("is_correct") and r.get("id") and r["id"] not in seen:
+                seen.add(r["id"])
+                wrong_ids.append(r["id"])
+
+    return jsonify({
+        "user_name": user.name,
+        "category":  category or "all",
+        "wrong_count": len(wrong_ids),
+        "wrong_ids": wrong_ids,
+    }), 200
 
 
 if __name__ == "__main__":

@@ -20,62 +20,81 @@
   </div>
 </header>
 
-<main class="container main-content">
-  <section class="setup-card card">
-    <h2 class="section-title"><i class="fa-solid fa-sliders"></i> 시험 설정</h2>
+<main class="container main-content" style="padding-top:16px; padding-bottom:16px;">
+  <div class="home-layout-3col">
 
-    <div class="form-group">
-      <label for="userName"><i class="fa-solid fa-user"></i> 이름</label>
-      <input
-        type="text"
-        id="userName"
-        class="form-input"
-        placeholder="이름을 입력하세요"
-        maxlength="30"
-        autocomplete="off"
-      />
-    </div>
-
-    <div class="form-group">
-      <label for="questionCount"><i class="fa-solid fa-list-ol"></i> 풀 문제 수</label>
-      <div class="count-selector">
-        <button class="count-btn" data-val="5">5문제</button>
-        <button class="count-btn active" data-val="10">10문제</button>
-        <button class="count-btn" data-val="15">15문제</button>
-        <button class="count-btn" data-val="20">20문제</button>
-      </div>
-      <input type="hidden" id="questionCount" value="10" />
-    </div>
-
-    <div class="form-group">
-      <label><i class="fa-solid fa-folder-open"></i> 카테고리 선택</label>
+    <!-- 왼쪽: 카테고리 선택 -->
+    <section class="home-col-left card">
+      <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:12px;">
+        <i class="fa-solid fa-folder-open"></i> 카테고리 선택
+      </label>
       <div id="categoryList" class="category-list">
         <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</div>
       </div>
-    </div>
+    </section>
 
-    <button id="startBtn" class="btn btn-primary btn-lg" disabled>
-      <i class="fa-solid fa-play"></i> 시험 시작
-    </button>
-  </section>
+    <!-- 중간: 이름 / 문제수 / 난이도 / 시작 -->
+    <section class="home-col-mid card">
+      <div class="form-group">
+        <label for="userName"><i class="fa-solid fa-user"></i> 이름</label>
+        <input type="text" id="userName" class="form-input"
+          placeholder="이름을 입력하세요" maxlength="30" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label><i class="fa-solid fa-list-ol"></i> 문제 수</label>
+        <div class="count-selector">
+          <button class="count-btn" data-val="5">5문제</button>
+          <button class="count-btn active" data-val="10">10문제</button>
+          <button class="count-btn" data-val="15">15문제</button>
+          <button class="count-btn" data-val="20">20문제</button>
+        </div>
+        <input type="hidden" id="questionCount" value="10" />
+      </div>
+      <div class="form-group">
+        <label><i class="fa-solid fa-gauge"></i> 난이도</label>
+        <div class="count-selector">
+          <button class="diff-btn" data-val="easy"><i class="fa-solid fa-seedling"></i> 쉬움</button>
+          <button class="diff-btn active" data-val="mixed"><i class="fa-solid fa-shuffle"></i> 혼합</button>
+          <button class="diff-btn" data-val="hard"><i class="fa-solid fa-fire"></i> 어려움</button>
+        </div>
+        <input type="hidden" id="difficulty" value="mixed" />
+      </div>
+      <button id="startBtn" class="btn btn-primary btn-lg" style="width:100%;margin-top:auto;" disabled>
+        <i class="fa-solid fa-play"></i> 시험 시작
+      </button>
+    </section>
 
-  <section class="info-grid">
-    <div class="info-card">
-      <div class="info-icon network"><i class="fa-solid fa-network-wired"></i></div>
-      <h3>네트워크</h3>
-      <p>OSI, TCP/IP, 라우팅, 방화벽, DNS, DHCP 등 네트워크 핵심 개념</p>
-    </div>
-    <div class="info-card">
-      <div class="info-icon infra"><i class="fa-solid fa-cloud"></i></div>
-      <h3>인프라</h3>
-      <p>가상화, 컨테이너, Kubernetes, IaC, CI/CD, 모니터링 등 인프라 운영 지식</p>
-    </div>
-    <div class="info-card">
-      <div class="info-icon linux"><i class="fa-brands fa-linux"></i></div>
-      <h3>리눅스</h3>
-      <p>파일 권한, 프로세스, 명령어, 서비스 관리, 시스템 설정 등 실무 중심</p>
-    </div>
-  </section>
+    <!-- 오른쪽: 카테고리 설명 -->
+    <aside class="home-col-right card">
+      <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:16px;">
+        <i class="fa-solid fa-circle-info"></i> 카테고리 안내
+      </label>
+      <div class="cat-info-panel-v">
+        <div class="cat-info-card network">
+          <div class="cat-info-icon"><i class="fa-solid fa-network-wired"></i></div>
+          <div>
+            <strong>네트워크</strong>
+            <p>OSI, TCP/IP, 라우팅, 방화벽, DNS, DHCP 등 네트워크 핵심 개념</p>
+          </div>
+        </div>
+        <div class="cat-info-card infra">
+          <div class="cat-info-icon"><i class="fa-solid fa-cloud"></i></div>
+          <div>
+            <strong>인프라</strong>
+            <p>가상화, 컨테이너, Kubernetes, IaC, CI/CD, 모니터링 등 운영 지식</p>
+          </div>
+        </div>
+        <div class="cat-info-card linux">
+          <div class="cat-info-icon"><i class="fa-brands fa-linux"></i></div>
+          <div>
+            <strong>리눅스</strong>
+            <p>파일 권한, 프로세스, 명령어, 서비스 관리, 시스템 설정 등 실무 중심</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
 </main>
 
 <footer class="site-footer">
@@ -86,7 +105,6 @@
 
 <script>
 const API_BASE = "/api";
-
 const CATEGORY_META = {
   network: { label: "네트워크", icon: "fa-network-wired", color: "network" },
   infra:   { label: "인프라",   icon: "fa-cloud",         color: "infra"   },
@@ -94,40 +112,126 @@ const CATEGORY_META = {
 };
 
 let selectedCategory = null;
-let selectedCount = 10;
+let selectedCount    = 10;
+let selectedDiff     = "mixed";
 
 async function loadCategories() {
   const list = document.getElementById("categoryList");
   list.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</div>';
   try {
-    const res = await fetch(`${API_BASE}/categories`);
+    const res  = await fetch(`${API_BASE}/categories`);
     if (!res.ok) throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
     const data = await res.json();
-
-    if (!data.categories || data.categories.length === 0) {
-      throw new Error("등록된 카테고리가 없습니다.");
-    }
+    if (!data.categories || data.categories.length === 0) throw new Error("등록된 카테고리가 없습니다.");
 
     list.innerHTML = "";
+
+    // 전체 혼합 버튼
+    const mixedBtn = document.createElement("button");
+    mixedBtn.className = "category-btn mixed-cat";
+    mixedBtn.dataset.cat = "all";
+    mixedBtn.innerHTML = `
+      <i class="fa-solid fa-shuffle" style="color:var(--primary-light);font-size:1.2rem;width:24px;text-align:center"></i>
+      <span class="cat-label">전체 혼합</span>
+    `;
+    mixedBtn.addEventListener("click", () => selectCategory("all", mixedBtn));
+    list.appendChild(mixedBtn);
+
+    // 개별 카테고리 버튼
     data.categories.forEach(cat => {
       const meta = CATEGORY_META[cat.name] || { label: cat.name, icon: "fa-folder", color: "" };
-      const btn = document.createElement("button");
+      const btn  = document.createElement("button");
       btn.className = `category-btn ${meta.color}`;
       btn.dataset.cat = cat.name;
+
+      let dbBadge = "";
+      if (cat.count >= 150) {
+        dbBadge = `<span class="db-badge db-full"><i class="fa-solid fa-database"></i> DB충분</span>`;
+      } else if (cat.count >= 100) {
+        dbBadge = `<span class="db-badge db-mid"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
+      } else if (cat.count >= 50) {
+        dbBadge = `<span class="db-badge db-low"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
+      } else {
+        dbBadge = `<span class="db-badge db-empty"><i class="fa-solid fa-wand-magic-sparkles"></i> AI출제</span>`;
+      }
+
       btn.innerHTML = `
         <i class="fa-solid ${meta.icon}"></i>
         <span class="cat-label">${meta.label}</span>
+        ${dbBadge}
       `;
       btn.addEventListener("click", () => selectCategory(cat.name, btn));
       list.appendChild(btn);
     });
   } catch (e) {
+    const is503 = e.message.includes("503");
     list.innerHTML = `
-      <p class="error-msg"><i class="fa-solid fa-triangle-exclamation"></i> 카테고리 로드 실패: ${e.message}</p>
+      <p class="error-msg">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        ${is503
+          ? "백엔드 서버가 아직 시작 중입니다. 잠시 후 다시 시도해주세요."
+          : "카테고리 로드 실패: " + e.message}
+      </p>
       <button onclick="loadCategories()" class="btn btn-secondary" style="margin-top:12px">
         <i class="fa-solid fa-rotate-right"></i> 다시 시도
       </button>`;
+    // 503이면 5초 후 자동 재시도
+    if (is503) setTimeout(loadCategories, 5000);
   }
+}
+
+const CAT_DESC = {
+  all:     { label: "전체 혼합", icon: "fa-solid fa-shuffle",         color: "mixed",   desc: "네트워크·인프라·리눅스 전 범위에서 랜덤 출제됩니다." },
+  network: { label: "네트워크", icon: "fa-solid fa-network-wired",    color: "network", desc: "OSI, TCP/IP, 라우팅, 방화벽, DNS, DHCP 등 네트워크 핵심 개념" },
+  infra:   { label: "인프라",   icon: "fa-solid fa-cloud",            color: "infra",   desc: "가상화, 컨테이너, Kubernetes, IaC, CI/CD, 모니터링 등 운영 지식" },
+  linux:   { label: "리눅스",   icon: "fa-brands fa-linux",           color: "linux",   desc: "파일 권한, 프로세스, 명령어, 서비스 관리, 시스템 설정 등 실무 중심" },
+};
+
+function isMobileView() {
+  return window.innerWidth <= 900;
+}
+
+function showCatPopup(name, anchorBtn) {
+  // 이미 같은 팝업이 열려 있으면 닫기
+  const existing = document.getElementById("catPopup");
+  if (existing) {
+    if (existing.dataset.cat === name) {
+      existing.remove();
+      return;
+    }
+    existing.remove();
+  }
+
+  const info = CAT_DESC[name];
+  if (!info) return;
+
+  const popup = document.createElement("div");
+  popup.id = "catPopup";
+  popup.dataset.cat = name;
+  popup.className = `cat-popup cat-popup-${info.color}`;
+  popup.innerHTML = `
+    <i class="${info.icon}"></i>
+    <div>
+      <strong>${info.label}</strong>
+      <p>${info.desc}</p>
+    </div>
+    <button class="cat-popup-close" onclick="document.getElementById('catPopup')?.remove()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  `;
+
+  // 버튼 바로 아래에 삽입
+  anchorBtn.parentNode.insertBefore(popup, anchorBtn.nextSibling);
+
+  // 외부 클릭 시 닫기 (약간 딜레이)
+  setTimeout(() => {
+    document.addEventListener("click", function closePop(e) {
+      if (!popup.contains(e.target) && e.target !== anchorBtn) {
+        popup.remove();
+        document.removeEventListener("click", closePop);
+      }
+    });
+  }, 100);
 }
 
 function selectCategory(name, btn) {
@@ -135,6 +239,11 @@ function selectCategory(name, btn) {
   btn.classList.add("active");
   selectedCategory = name;
   checkReady();
+
+  // 모바일/태블릿에서만 팝업
+  if (isMobileView()) {
+    showCatPopup(name, btn);
+  }
 }
 
 document.querySelectorAll(".count-btn").forEach(btn => {
@@ -144,6 +253,15 @@ document.querySelectorAll(".count-btn").forEach(btn => {
     selectedCount = parseInt(btn.dataset.val, 10);
     document.getElementById("questionCount").value = selectedCount;
     checkReady();
+  });
+});
+
+document.querySelectorAll(".diff-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedDiff = btn.dataset.val;
+    document.getElementById("difficulty").value = selectedDiff;
   });
 });
 
@@ -157,11 +275,16 @@ document.getElementById("startBtn").addEventListener("click", () => {
   const name = document.getElementById("userName").value.trim();
   if (!name || !selectedCategory) return;
 
-  sessionStorage.setItem("userName", name);
-  sessionStorage.setItem("category", selectedCategory);
+  sessionStorage.setItem("userName",      name);
+  sessionStorage.setItem("category",      selectedCategory);
   sessionStorage.setItem("questionCount", String(selectedCount));
+  sessionStorage.setItem("difficulty",    selectedDiff);
 
-  window.location.href = `/quiz/${selectedCategory}?limit=${selectedCount}`;
+  if (selectedCategory === "all") {
+    window.location.href = `/quiz/all?limit=${selectedCount}&difficulty=${selectedDiff}`;
+  } else {
+    window.location.href = `/quiz/${selectedCategory}?limit=${selectedCount}&difficulty=${selectedDiff}`;
+  }
 });
 
 loadCategories();

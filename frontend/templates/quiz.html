@@ -16,9 +16,19 @@
       <i class="fa-solid fa-server"></i>
       <span>IT 문제은행</span>
     </a>
+    <!-- 진행률 (중앙) -->
+    <div class="quiz-progress-center" id="quizProgressCenter" style="display:none">
+      <span id="progressText" style="font-size:1rem;font-weight:600;color:var(--primary-light);">문제 1 / ?</span>
+      <span style="color:var(--text-muted);font-size:0.9rem;margin-left:10px;" id="progressPct">0%</span>
+    </div>
     <div class="quiz-meta">
       <span id="metaUser"><i class="fa-solid fa-user"></i> <span id="displayName">-</span></span>
       <span id="metaCat"><i class="fa-solid fa-folder"></i> <span id="displayCat">-</span></span>
+      <!-- 타이머 -->
+      <span id="timerWrap" style="display:none">
+        <i class="fa-solid fa-stopwatch"></i>
+        <span id="timerDisplay" style="font-variant-numeric:tabular-nums;font-weight:600">00:00</span>
+      </span>
     </div>
   </div>
 </header>
@@ -26,15 +36,11 @@
 <div class="progress-wrap">
   <div class="progress-bar" id="progressBar" style="width:0%"></div>
 </div>
-<div class="progress-label container">
-  <span id="progressText">문제 1 / ?</span>
-  <span id="progressPct">0%</span>
-</div>
 
 <main class="container main-content">
   <div id="loadingBox" class="loading-box">
     <i class="fa-solid fa-spinner fa-spin fa-3x"></i>
-    <p>문제를 불러오는 중...</p>
+    <p id="loadingMsg">문제를 불러오는 중...</p>
   </div>
 
   <section id="quizCard" class="quiz-card card" style="display:none">
@@ -42,9 +48,7 @@
       <span class="q-badge" id="qBadge">Q1</span>
       <span class="q-category" id="qCategory"></span>
     </div>
-
     <p class="question-text" id="questionText"></p>
-
     <ul class="choices" id="choiceList"></ul>
 
     <div class="quiz-actions">
@@ -69,87 +73,136 @@
 
 <script>
 const API_BASE = "/api";
+const CATEGORY_LABEL = { network: "네트워크", infra: "인프라", linux: "리눅스", all: "전체혼합" };
 
-const CATEGORY_LABEL = {
-  network: "네트워크",
-  infra: "인프라",
-  linux: "리눅스",
-};
+const pathParts  = window.location.pathname.split("/");
+const CATEGORY   = pathParts[pathParts.length - 1] || sessionStorage.getItem("category");
+const params     = new URLSearchParams(window.location.search);
+const LIMIT      = parseInt(params.get("limit")      || sessionStorage.getItem("questionCount") || "10", 10);
+const DIFFICULTY = params.get("difficulty") || sessionStorage.getItem("difficulty") || "mixed";
+const USER_NAME  = sessionStorage.getItem("userName") || "익명";
+const IS_RETRY   = sessionStorage.getItem("retryMode") === "1";
 
-const pathParts = window.location.pathname.split("/");
-const CATEGORY = pathParts[pathParts.length - 1] || sessionStorage.getItem("category");
-const params = new URLSearchParams(window.location.search);
-const LIMIT = parseInt(params.get("limit") || sessionStorage.getItem("questionCount") || "10", 10);
-const USER_NAME = sessionStorage.getItem("userName") || "익명";
+let questions    = [];
+let current      = 0;
+let userAnswers  = {};
 
-let questions = [];
-let current = 0;
-let userAnswers = {};
+// ── 타이머 ─────────────────────────────────────────────────
+let timerInterval = null;
+let elapsedSec    = 0;
 
+function startTimer() {
+  document.getElementById("timerWrap").style.display = "flex";
+  timerInterval = setInterval(() => {
+    elapsedSec++;
+    const m = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+    const s = String(elapsedSec % 60).padStart(2, "0");
+    document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+}
+
+// ── 헤더 표시 ──────────────────────────────────────────────
 document.getElementById("displayName").textContent = USER_NAME;
-document.getElementById("displayCat").textContent = CATEGORY_LABEL[CATEGORY] || CATEGORY;
+document.getElementById("displayCat").textContent  = CATEGORY_LABEL[CATEGORY] || CATEGORY;
 
+// ── 문제 로드 ──────────────────────────────────────────────
 async function loadQuestions() {
+  const loadingMsg = document.getElementById("loadingMsg");
+
   try {
-    const userParam = encodeURIComponent(USER_NAME);
+    let data;
 
-    // 로딩 메시지 업데이트
-    document.querySelector("#loadingBox p").textContent = "AI로 문제를 생성하는 중입니다...";
-
-    let res = await fetch(`${API_BASE}/questions/${CATEGORY}?limit=${LIMIT}&shuffle=1&source=ai&user=${userParam}`);
-    let data = await res.json().catch(() => ({}));
-
-    // AI 생성 실패(502) 시 DB 캐시 fallback
-    if (!res.ok) {
-      document.querySelector("#loadingBox p").textContent = "AI 생성 실패, DB에서 문제를 불러오는 중...";
-      res = await fetch(`${API_BASE}/questions/${CATEGORY}?limit=${LIMIT}&shuffle=1&source=auto&user=${userParam}`);
+    // 오답 재도전 모드
+    if (IS_RETRY) {
+      sessionStorage.removeItem("retryMode");
+      const wrongIds = JSON.parse(sessionStorage.getItem("wrongIds") || "[]");
+      if (!wrongIds.length) throw new Error("오답 목록이 없습니다.");
+      loadingMsg.textContent = "오답 문제를 불러오는 중...";
+      const res = await fetch(`${API_BASE}/retry-wrong`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: wrongIds }),
+      });
       data = await res.json().catch(() => ({}));
-    }
+      if (!res.ok) throw new Error(data.error || `서버 오류 (${res.status})`);
 
-    if (!res.ok) {
-      const aiErrDetail = (data.ai_errors || []).join(" | ");
-      const errMsg = data.error || `서버 오류 (${res.status})`;
-      throw new Error(aiErrDetail ? `${errMsg}\n상세: ${aiErrDetail}` : errMsg);
+    // 전체 혼합 모드
+    } else if (CATEGORY === "all") {
+      loadingMsg.textContent = "전체 카테고리 문제를 준비하는 중...";
+      const userParam = encodeURIComponent(USER_NAME);
+      const res = await fetch(
+        `${API_BASE}/questions/all/mixed?limit=${LIMIT}&shuffle=1&difficulty=${DIFFICULTY}&user=${userParam}`
+      );
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `서버 오류 (${res.status})`);
+
+    // 일반 카테고리 (DB 비율 자동)
+    } else {
+      loadingMsg.textContent = "문제를 준비하는 중...";
+      const userParam = encodeURIComponent(USER_NAME);
+      const res = await fetch(
+        `${API_BASE}/questions/${CATEGORY}?limit=${LIMIT}&shuffle=1&difficulty=${DIFFICULTY}&user=${userParam}`
+      );
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `서버 오류 (${res.status})`);
     }
 
     if (!data.questions || data.questions.length === 0) {
       throw new Error("문제를 찾을 수 없습니다. GEMINI_API_KEY가 설정되어 있는지 확인해주세요.");
     }
 
-    // degraded(부족) 상태이나 일부 문제 있으면 경고 후 진행
-    if (data.provider === "degraded" && data.questions.length < LIMIT) {
-      const go = confirm(`⚠️ AI 문제 생성 오류로 ${data.questions.length}문제만 준비되었습니다.\n오류: ${data.warning || "알 수 없는 오류"}\n\n이 문제들로 시작할까요?`);
-      if (!go) {
-        window.location.href = "/";
-        return;
-      }
-    }
-
     questions = data.questions;
     document.getElementById("loadingBox").style.display = "none";
-    document.getElementById("quizCard").style.display = "block";
+    document.getElementById("quizCard").style.display   = "block";
+
+    // 출제 모드 표시
+    if (data.provider === "gemini") {
+      loadingMsg.textContent = `AI가 ${data.ai_count}문제를 새로 생성했습니다.`;
+    } else if (data.provider === "hybrid") {
+      loadingMsg.textContent = `AI ${data.ai_count}문제 + DB ${data.db_count}문제 혼합 출제`;
+    }
+
+    startTimer();
     renderQuestion(0);
+
   } catch (e) {
     document.getElementById("loadingBox").style.display = "none";
-    document.getElementById("errorBox").style.display = "flex";
-    document.getElementById("errorMsg").textContent = e.message;
+    document.getElementById("errorBox").style.display   = "flex";
+    // 서버에서 온 에러 메시지가 있으면 그대로, 없으면 기본 안내
+    const msg = e.message || "";
+    if (msg.includes("503") || msg.includes("high demand") || msg.includes("일시적")) {
+      document.getElementById("errorMsg").textContent = "AI 서버에 요청이 몰려 일시적으로 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요. (503)";
+    } else if (msg.includes("429") || msg.includes("한도")) {
+      document.getElementById("errorMsg").textContent = "AI 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요. (429)";
+    } else if (msg.includes("timed out") || msg.includes("timeout") || msg.includes("backend timeout")) {
+      document.getElementById("errorMsg").textContent = "문제 생성 시간이 초과되었습니다. 문제 수를 줄이거나 잠시 후 다시 시도해주세요.";
+    } else if (msg) {
+      document.getElementById("errorMsg").textContent = msg;
+    } else {
+      document.getElementById("errorMsg").textContent = "문제를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    }
   }
 }
 
+// ── 문제 렌더링 ────────────────────────────────────────────
 function renderQuestion(idx) {
-  const q = questions[idx];
+  const q     = questions[idx];
   const total = questions.length;
-  const pct = Math.round(((idx + 1) / total) * 100);
+  const pct   = Math.round(((idx + 1) / total) * 100);
 
-  document.getElementById("progressBar").style.width = pct + "%";
+  document.getElementById("progressBar").style.width  = pct + "%";
   document.getElementById("progressText").textContent = `문제 ${idx + 1} / ${total}`;
-  document.getElementById("progressPct").textContent = pct + "%";
-
-  document.getElementById("qBadge").textContent = `Q${idx + 1}`;
-  document.getElementById("qCategory").textContent = CATEGORY_LABEL[q.category] || q.category;
+  document.getElementById("progressPct").textContent  = pct + "%";
+  document.getElementById("quizProgressCenter").style.display = "flex";
+  document.getElementById("qBadge").textContent       = `Q${idx + 1}`;
+  document.getElementById("qCategory").textContent    = CATEGORY_LABEL[q.category] || q.category;
   document.getElementById("questionText").textContent = q.question;
 
-  const choiceList = document.getElementById("choiceList");
+  const choiceList  = document.getElementById("choiceList");
   choiceList.innerHTML = "";
   const savedAnswer = userAnswers[q.id];
 
@@ -157,7 +210,7 @@ function renderQuestion(idx) {
     const li = document.createElement("li");
     li.className = "choice-item" + (savedAnswer === key ? " selected" : "");
     li.dataset.key = key;
-    li.innerHTML = `
+    li.innerHTML   = `
       <span class="choice-key">${key}</span>
       <span class="choice-text">${q.choices[key]}</span>
     `;
@@ -166,18 +219,16 @@ function renderQuestion(idx) {
   });
 
   document.getElementById("prevBtn").disabled = idx === 0;
-  const nextBtn = document.getElementById("nextBtn");
+  const nextBtn   = document.getElementById("nextBtn");
   const submitBtn = document.getElementById("submitBtn");
-
   if (idx === total - 1) {
-    nextBtn.style.display = "none";
+    nextBtn.style.display   = "none";
     submitBtn.style.display = "inline-flex";
   } else {
-    nextBtn.style.display = "inline-flex";
+    nextBtn.style.display   = "inline-flex";
     submitBtn.style.display = "none";
   }
-
-  nextBtn.disabled = !savedAnswer;
+  nextBtn.disabled   = !savedAnswer;
   submitBtn.disabled = !savedAnswer;
 }
 
@@ -186,24 +237,18 @@ function selectChoice(questionId, key) {
   document.querySelectorAll(".choice-item").forEach(li => {
     li.classList.toggle("selected", li.dataset.key === key);
   });
-  document.getElementById("nextBtn").disabled = false;
+  document.getElementById("nextBtn").disabled   = false;
   document.getElementById("submitBtn").disabled = false;
 }
 
 document.getElementById("prevBtn").addEventListener("click", () => {
-  if (current > 0) {
-    current--;
-    renderQuestion(current);
-  }
+  if (current > 0) { current--; renderQuestion(current); }
 });
-
 document.getElementById("nextBtn").addEventListener("click", () => {
-  if (current < questions.length - 1) {
-    current++;
-    renderQuestion(current);
-  }
+  if (current < questions.length - 1) { current++; renderQuestion(current); }
 });
 
+// ── 채점 제출 ──────────────────────────────────────────────
 document.getElementById("submitBtn").addEventListener("click", async () => {
   const unanswered = questions.filter(q => !userAnswers[q.id]);
   if (unanswered.length > 0) {
@@ -211,13 +256,13 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
     if (!go) return;
   }
 
+  stopTimer();
+
   const payload = {
     user_name: USER_NAME,
-    category: CATEGORY,
-    answers: questions.map(q => ({
-      id: q.id,
-      selected: userAnswers[q.id] || "",
-    })),
+    category:  CATEGORY === "all" ? "mixed" : CATEGORY,
+    elapsed_sec: elapsedSec,
+    answers: questions.map(q => ({ id: q.id, selected: userAnswers[q.id] || "" })),
   };
 
   try {
@@ -228,6 +273,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
     });
     if (!res.ok) throw new Error(`채점 실패 (${res.status})`);
     const data = await res.json();
+    data.elapsed_sec = elapsedSec;
     sessionStorage.setItem("quizResult", JSON.stringify(data));
     window.location.href = "/result";
   } catch (e) {
