@@ -54,6 +54,9 @@ set DB_NAME=quizdb
 set DB_USER=quizuser
 set DB_PASSWORD=quizpassword
 set GEMINI_API_KEY=YOUR_GEMINI_KEY
+set GEMINI_MODEL=gemini-2.5-flash
+set GEMINI_TIMEOUT=120
+set AI_REQUEST_BUDGET_SEC=200
 
 python init_db.py
 python app.py
@@ -72,6 +75,9 @@ export DB_NAME=quizdb
 export DB_USER=quizuser
 export DB_PASSWORD=quizpassword
 export GEMINI_API_KEY=YOUR_GEMINI_KEY
+export GEMINI_MODEL=gemini-2.5-flash
+export GEMINI_TIMEOUT=120
+export AI_REQUEST_BUDGET_SEC=200
 
 python init_db.py
 python app.py
@@ -85,6 +91,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 set BACKEND_URL=http://localhost:5000
+set FRONTEND_PROXY_TIMEOUT=300
 python app.py
 ```
 
@@ -96,6 +103,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 export BACKEND_URL=http://localhost:5000
+export FRONTEND_PROXY_TIMEOUT=300
 python app.py
 ```
 
@@ -104,13 +112,22 @@ python app.py
 ## 3. 동작 확인 체크리스트
 1. `GET /api/health`가 200인지 확인
 2. 문제 선택 수(5/10/15/20)와 실제 출제 수가 동일한지 확인
-3. 진행 바의 `문제 x / y`와 `%`가 겹치지 않는지 확인
-4. `source=ai` 호출 시 AI 생성 + DB 보강이 정상 동작하는지 확인
-5. 이력에서 특정 시도를 눌렀을 때 리뷰 화면으로 이동되는지 확인
+3. 헤더의 `문제 x / y`와 `%` 진행률이 정상 표시되는지 확인
+4. 난이도 선택(쉬움/혼합/어려움)이 정상 동작하는지 확인
+5. `source=ai` 호출 시 AI 생성 + DB 보강이 정상 동작하는지 확인
+6. 이력에서 특정 시도를 눌렀을 때 리뷰 화면으로 이동되는지 확인
+7. 이력 페이지에서 누적 오답 N문제 출제가 정상 동작하는지 확인
 
 예시 호출:
 ```bash
+# 기본 출제
 curl "http://localhost:5000/api/questions/linux?limit=10&shuffle=1&source=ai&user=tester"
+
+# 난이도 지정 출제
+curl "http://localhost:5000/api/questions/network?limit=10&difficulty=hard&source=ai&user=tester"
+
+# 누적 오답 ID 조회
+curl "http://localhost:5000/api/history/tester/wrong-ids"
 ```
 
 ---
@@ -145,11 +162,18 @@ LIMIT 20;
 ---
 
 ## 5. 문제 해결
-- AI 403/404: `GEMINI_API_KEY`, `GEMINI_API_URL`, 모델명(`GEMINI_MODEL`) 확인
-- AI NETWORK_BLOCKED: `GET /api/ai/health?check=1`로 TCP 443 egress 차단 여부 확인 (Kubernetes NetworkPolicy 점검)
-- 한글 깨짐: DB 저장이 아닌 터미널 문자셋 문제인지 먼저 확인 (`chcp 65001`)
-- 출제 수 부족: backend 로그에서 AI 응답 파싱 오류/타임아웃 확인
-- SQLite 사용 중인 경우: `USE_SQLITE_FALLBACK=true` 상태에서 MySQL 연결 불가 시 자동 전환됨, `GET /api/health` 응답의 `db_mode` 필드로 확인 가능
+
+| 증상 | 확인 사항 |
+|------|----------|
+| AI 403/404 | `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-2.5-flash` 확인 |
+| AI 429 | 요청 한도 초과 — 잠시 후 재시도 |
+| AI 503 | Gemini 서버 과부하 — 잠시 후 재시도 |
+| AI 타임아웃 | `GEMINI_TIMEOUT` 값 증가 (기본 120초), 문제 수 줄이기 |
+| AI NETWORK_BLOCKED | `GET /api/ai/health?check=1`으로 TCP 443 egress 차단 여부 확인 (Kubernetes NetworkPolicy 점검) |
+| 한글 깨짐 | DB 저장이 아닌 터미널 문자셋 문제인지 먼저 확인 (`chcp 65001`) |
+| 출제 수 부족 | backend 로그에서 AI 응답 파싱 오류/타임아웃 확인 |
+| SQLite 사용 중 | `USE_SQLITE_FALLBACK=true` 상태에서 MySQL 연결 불가 시 자동 전환 — `GET /api/health` 응답의 `db_mode` 필드로 확인 |
+| 프론트 502 | `FRONTEND_PROXY_TIMEOUT` 값 확인 (기본 300초) |
 
 ---
 
@@ -157,7 +181,8 @@ LIMIT 20;
 1. `.env`가 git 추적 제외인지 확인
 2. `python -m py_compile backend/app.py backend/init_db.py frontend/app.py`
 3. `GET /api/history/<user>/<attempt_id>` 응답이 정상인지 확인
-4. `git status`로 문서/이미지 변경 파일 확인
+4. `GET /api/history/<user>/wrong-ids` 응답이 정상인지 확인
+5. `git status`로 문서/이미지 변경 파일 확인
 
 ---
 
@@ -186,6 +211,16 @@ kubectl apply -f k8s/frontend-deployment.yaml
 kubectl apply -f k8s/frontend-service.yaml
 kubectl apply -f k8s/network-policy.yaml
 ```
+
+> **이미지 재빌드가 필요한 경우** (코드/HTML/CSS 변경 시):
+> ```bash
+> docker build -t <registry>/it-qbank-backend:latest ./backend
+> docker build -t <registry>/it-qbank-frontend:latest ./frontend
+> docker push <registry>/it-qbank-backend:latest
+> docker push <registry>/it-qbank-frontend:latest
+> kubectl rollout restart deployment/backend-deployment -n hc-quiz-bank
+> kubectl rollout restart deployment/frontend-deployment -n hc-quiz-bank
+> ```
 
 ---
 
@@ -251,7 +286,6 @@ kubectl get svc -n hc-quiz-bank
 
 Gateway IP 확인 및 접속:
 ```bash
-# LoadBalancer IP 또는 ClusterIP 확인
 kubectl get gateway quiz-gateway -n hc-quiz-bank -o jsonpath='{.status.addresses}'
 ```
 
