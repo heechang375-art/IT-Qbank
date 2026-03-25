@@ -208,6 +208,8 @@ PowerShell 스크립트:
 수동 적용:
 
 ```bash
+cp k8s/examples/secret.example.yaml k8s/secret.yaml
+# Fill in the real secret values in k8s/secret.yaml before applying.
 kubectl apply -f k8s/00-namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml

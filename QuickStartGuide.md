@@ -212,6 +212,8 @@ curl -X DELETE "http://localhost:5000/api/admin/purge-questions" \
 또는:
 
 ```bash
+cp k8s/examples/secret.example.yaml k8s/secret.yaml
+# Apply after filling in your real secret values.
 kubectl apply -f k8s/00-namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml

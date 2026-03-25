@@ -1,4 +1,4 @@
-# ─── Python ──────────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,30 +7,28 @@ __pycache__/
 .Python
 *.egg
 *.egg-info/
-dist/
 build/
+dist/
 eggs/
 parts/
-var/
 sdist/
-develop-eggs/
+var/
+wheels/
 .installed.cfg
 lib/
 lib64/
-wheels/
 
-# ─── 가상환경 ─────────────────────────────────────────────────────────────────
+# Virtual environments
 venv/
 env/
 ENV/
 .venv/
-.env/
 
-# ─── 환경변수 (보안) ──────────────────────────────────────────────────────────
+# Local environment files
 .env
 !.env.example
 
-# ─── IDE ─────────────────────────────────────────────────────────────────────
+# IDE and OS files
 .vscode/
 .idea/
 *.swp
@@ -38,22 +36,21 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# ─── 로그 ────────────────────────────────────────────────────────────────────
+# Logs
 *.log
 logs/
 
-# ─── DB ──────────────────────────────────────────────────────────────────────
+# Local databases
 *.db
 *.sqlite3
+instance/
 
-# ─── Docker ──────────────────────────────────────────────────────────────────
-# (docker-compose.yml은 포함)
-
-# ─── k8s Secret (민감 파일 제외) ─────────────────────────────────────────────
-k8s/secret-prod.yaml
-k8s/*-prod.yaml
-
-# ─── 기타 ────────────────────────────────────────────────────────────────────
+# Test and coverage artifacts
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Kubernetes secrets
+k8s/secret.yaml
+k8s/secret-*.yaml
+!k8s/examples/*.yaml
