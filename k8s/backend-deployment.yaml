@@ -1,11 +1,10 @@
 ## ─────────────────────────────────────────────────────────────
 ## Backend Deployment
 ## 수정사항:
-##   1. DB_WAIT_RETRIES: 20, DB_WAIT_DELAY: 5 으로 증가
-##      (MySQL 초기화 시간이 충분히 확보되도록)
-##   2. readinessProbe initialDelaySeconds: 45로 증가
-##      (MySQL 준비 전에 readiness 실패로 재시작되는 문제 방지)
-##   3. livenessProbe initialDelaySeconds: 90으로 증가
+##   1. ADMIN_SECRET_KEY 환경변수 추가 (관리자 API 인증용)
+##   2. DB_WAIT_RETRIES: 20, DB_WAIT_DELAY: 5
+##   3. readinessProbe initialDelaySeconds: 45
+##   4. livenessProbe initialDelaySeconds: 90
 ## ─────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -29,11 +28,10 @@ spec:
       labels:
         app: backend
     spec:
-      # initContainer 제거 - entrypoint.sh 내부에서 MySQL 대기 처리
       containers:
         - name: backend
-          image: collapse/quiz-backend:latest
-          imagePullPolicy: Always
+          image: collapse/quiz-backend:v0.7.1
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           env:
@@ -72,11 +70,6 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: USE_SQLITE_FALLBACK
-            - name: PURGE_DEFAULT_ON_BOOT
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: PURGE_DEFAULT_ON_BOOT
             - name: GEMINI_MODEL
               valueFrom:
                 configMapKeyRef:
@@ -97,6 +90,12 @@ spec:
                 secretKeyRef:
                   name: backend-secret
                   key: GEMINI_API_KEY
+            # [신규] 관리자 API 인증 키
+            - name: ADMIN_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: ADMIN_SECRET_KEY
             - name: PORT
               value: "5000"
             - name: DB_WAIT_RETRIES

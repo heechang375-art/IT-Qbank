@@ -1,25 +1,26 @@
-# ──────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # configmap.yaml
 # backend-config: DB 접속정보(호스트/포트), Gemini 모델/URL/타임아웃 등 비밀이 아닌 설정
 # frontend-config: 프론트가 백엔드를 찾는 BACKEND_URL 등 설정
 # 실제 비밀값(API Key, 패스워드)은 secret.yaml 에서 관리
-# ──────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
   namespace: hc-quiz-bank
 data:
-  DB_HOST: "mysql-service"
-  DB_PORT: "3306"
-  FLASK_DEBUG: "false"
-  GEMINI_MODEL: "gemini-2.5-flash"
-  GEMINI_MODEL_CANDIDATES: "gemini-2.5-flash"
-  GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models"
-  GEMINI_TIMEOUT: "120"
-  AI_REQUEST_BUDGET_SEC: "200"
-  PURGE_DEFAULT_ON_BOOT: "true"
-  USE_SQLITE_FALLBACK: "false"
+  DB_HOST:                  "mysql-service"
+  DB_PORT:                  "3306"
+  FLASK_DEBUG:              "false"
+  GEMINI_MODEL:             "gemini-2.5-flash"
+  GEMINI_MODEL_CANDIDATES:  "gemini-2.5-flash"
+  GEMINI_API_URL:           "https://generativelanguage.googleapis.com/v1beta/models"
+  GEMINI_TIMEOUT:           "30"
+  AI_REQUEST_BUDGET_SEC:    "60"
+  PURGE_DEFAULT_ON_BOOT:    "false"
+  PURGE_SHORT_ON_BOOT:      "false"
+  USE_SQLITE_FALLBACK:      "false"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -27,9 +28,9 @@ metadata:
   name: frontend-config
   namespace: hc-quiz-bank
 data:
-  BACKEND_URL: "http://backend-service:5000"
-  FLASK_DEBUG: "false"
-  FRONTEND_PROXY_TIMEOUT: "300"
+  BACKEND_URL:             "http://backend-service:5000"
+  FLASK_DEBUG:             "false"
+  FRONTEND_PROXY_TIMEOUT:  "300"
 ---
 apiVersion: v1
 kind: ConfigMap

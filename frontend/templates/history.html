@@ -7,6 +7,23 @@
   <link rel="stylesheet" href="/static/css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* [수정] 모바일 오답 입력 영역 */
+    @media (max-width: 480px) {
+      #wrongRetrySection > div {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      #wrongRetryCount {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      #retryAllWrongBtn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -33,21 +50,26 @@
       <div class="form-group">
         <label for="historyUser">이름</label>
         <div style="display:flex; gap:10px; align-items:center;">
-          <input id="historyUser" class="form-input" placeholder="이름 입력" maxlength="30" />
+          <!-- [수정] font-size:16px 추가 (iOS 줌인 방지) -->
+          <input id="historyUser" class="form-input" placeholder="이름 입력" maxlength="30"
+            style="font-size:16px;" />
           <button id="loadHistoryBtn" class="btn btn-secondary">
             <i class="fa-solid fa-magnifying-glass"></i> 조회
           </button>
         </div>
       </div>
       <div id="historyInfo" class="subtitle"></div>
-      <!-- 누적 오답 출제 (조회 후 표시) -->
+
+      <!-- 누적 오답 출제 -->
       <div id="wrongRetrySection" style="display:none; margin:12px 0;">
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <span id="retryAllWrongLabel" style="color:var(--text-muted); font-size:0.9rem;">누적 오답</span>
+          <!-- [수정] 고정 80px → auto, font-size:16px, min-height:44px 추가 -->
           <input id="wrongRetryCount" type="number" min="1" class="form-input"
-            style="width:80px; padding:8px 10px; text-align:center;"
+            style="width:auto; min-width:80px; max-width:120px; padding:8px 10px;
+                   text-align:center; font-size:16px; min-height:44px;"
             placeholder="문제수" />
-          <button id="retryAllWrongBtn" class="btn" style="background:var(--warning);color:#1a1a1a;">
+          <button id="retryAllWrongBtn" class="btn" style="background:var(--warning);color:#1a1a1a;min-height:44px;">
             <i class="fa-solid fa-rotate-right"></i> 오답 출제
           </button>
         </div>
@@ -58,7 +80,28 @@
 
   <script>
   const API_BASE = "/api";
-  const CATEGORY_LABEL = { network: "네트워크", infra: "인프라", linux: "리눅스" };
+  const CATEGORY_LABEL = {
+    all: "전체혼합",
+    mixed: "전체혼합",
+    programming: "프로그래밍",
+    web: "웹개발",
+    database: "데이터베이스",
+    network: "네트워크",
+    linux: "리눅스",
+    cloud: "클라우드",
+    kubernetes: "쿠버네티스",
+    security: "보안",
+    infra: "인프라",
+    network_general: "네트워크",
+    network_security: "보안",
+    network_services: "네트워크",
+    infra_general: "클라우드",
+    infra_cloud: "클라우드",
+    infra_kubernetes: "쿠버네티스",
+    linux_general: "리눅스",
+    linux_admin: "리눅스",
+    linux_troubleshooting: "리눅스",
+  };
   const input = document.getElementById("historyUser");
   const info  = document.getElementById("historyInfo");
   const list  = document.getElementById("historyList");
@@ -66,7 +109,6 @@
   const savedName = sessionStorage.getItem("userName") || "";
   input.value = (qs.get("user") || savedName).trim();
 
-  // 결과 데이터가 있으면 "결과로 돌아가기" 버튼 표시
   const hasResult = !!sessionStorage.getItem("quizResult");
   if (hasResult) {
     const backBtn = document.getElementById("backToResultBtn");
@@ -80,9 +122,13 @@
       return;
     }
     list.innerHTML = items.map((a) => {
-      const catLabel = CATEGORY_LABEL[a.category] || a.category;
+      const catLabel   = a.category_label || CATEGORY_LABEL[a.category] || a.category;
       const scoreClass = a.score_percent >= 80 ? "badge-gold"
                        : a.score_percent >= 60 ? "badge-correct" : "badge-wrong";
+      const diffLabel  = a.difficulty ? ` | 난이도: ${a.difficulty}` : "";
+      const timeLabel  = a.elapsed_sec != null
+        ? ` | ${String(Math.floor(a.elapsed_sec/60)).padStart(2,"0")}:${String(a.elapsed_sec%60).padStart(2,"0")}`
+        : "";
       return `
       <div class="review-card card" style="margin-top:12px">
         <div class="rc-header">
@@ -90,16 +136,23 @@
           <span class="rc-cat">${catLabel}</span>
           <span class="badge ${scoreClass}">${a.score_percent}%</span>
         </div>
-        <p class="rc-question">총 ${a.total}문제 &nbsp;|&nbsp; 정답 <strong style="color:var(--success)">${a.correct}</strong> &nbsp;|&nbsp; 오답 <strong style="color:var(--danger)">${a.wrong}</strong></p>
+        <p class="rc-question">
+          총 ${a.total}문제 &nbsp;|&nbsp;
+          정답 <strong style="color:var(--success)">${a.correct}</strong> &nbsp;|&nbsp;
+          오답 <strong style="color:var(--danger)">${a.wrong}</strong>
+          ${diffLabel}${timeLabel}
+        </p>
         <div class="subtitle" style="margin-top:4px;">응시 시각(KST): ${a.created_at_kst}</div>
         <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="openAttempt('${encodeURIComponent(input.value.trim())}', ${a.attempt_id})">
+          <button class="btn btn-secondary btn-sm"
+            onclick="openAttempt('${encodeURIComponent(input.value.trim())}', ${a.attempt_id})">
             <i class="fa-solid fa-eye"></i> 이 시도 다시보기
           </button>
           ${a.wrong > 0 ? `
-          <button class="btn btn-sm" style="background:var(--warning);color:#1a1a1a;" onclick="retryWrong('${encodeURIComponent(input.value.trim())}', ${a.attempt_id}, ${a.wrong})">
+          <button class="btn btn-sm" style="background:var(--warning);color:#1a1a1a;"
+            onclick="retryWrong('${encodeURIComponent(input.value.trim())}', ${a.attempt_id}, ${a.wrong})">
             <i class="fa-solid fa-rotate-right"></i> 오답 ${a.wrong}개 다시 풀기
-          </button>` : ''}
+          </button>` : ""}
         </div>
       </div>`;
     }).join("");
@@ -108,8 +161,8 @@
   async function retryAllWrong() {
     const user = input.value.trim();
     if (!user) return;
-    const countInput = document.getElementById("wrongRetryCount");
-    const requestCount = parseInt(countInput.value) || 0;
+    const countInput    = document.getElementById("wrongRetryCount");
+    const requestCount  = parseInt(countInput.value) || 0;
     if (requestCount < 1) {
       alert("출제할 문제 수를 입력해주세요.");
       countInput.focus();
@@ -123,20 +176,20 @@
         alert("누적 오답 문제가 없습니다.");
         return;
       }
-      // 요청 수만큼만 랜덤으로 선택
       const shuffled = data.wrong_ids.sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, Math.min(requestCount, shuffled.length));
       sessionStorage.setItem("wrongIds",  JSON.stringify(selected));
       sessionStorage.setItem("retryMode", "1");
-      sessionStorage.setItem("category",  "network");
+      sessionStorage.setItem("questionStyle", "mixed");
+      sessionStorage.setItem("category",  "all");
       sessionStorage.setItem("userName",  user);
-      window.location.href = `/quiz/network?limit=${selected.length}`;
+      window.location.href = `/quiz/all?limit=${selected.length}`;
     } catch (e) {
       alert(`누적 오답 조회 실패: ${e.message}`);
     }
   }
 
-  async function retryWrong(userEncoded, attemptId, wrongCount) {
+  async function retryWrong(userEncoded, attemptId) {
     try {
       const res  = await fetch(`${API_BASE}/history/${userEncoded}/${attemptId}`);
       const data = await res.json();
@@ -145,9 +198,10 @@
       if (!wrongIds.length) { alert("오답 데이터가 없습니다."); return; }
       sessionStorage.setItem("wrongIds",  JSON.stringify(wrongIds));
       sessionStorage.setItem("retryMode", "1");
-      sessionStorage.setItem("category",  data.category || "network");
+      sessionStorage.setItem("questionStyle", "mixed");
+      sessionStorage.setItem("category",  data.category || "programming");
       sessionStorage.setItem("userName",  data.user_name || input.value.trim());
-      window.location.href = `/quiz/${data.category || "network"}?limit=${wrongIds.length}`;
+      window.location.href = `/quiz/${data.category || "programming"}?limit=${wrongIds.length}`;
     } catch (e) {
       alert(`오답 출제 실패: ${e.message}`);
     }
@@ -162,6 +216,7 @@
       sessionStorage.setItem("quizResult", JSON.stringify({
         total: data.total, correct: data.correct,
         wrong: data.wrong, score_percent: data.score_percent,
+        elapsed_sec: data.elapsed_sec,
         results: data.results || [],
       }));
       window.location.href = "/review";
@@ -181,8 +236,7 @@
       info.textContent = `${data.user_name} 님 이력 ${data.attempts.length}건`;
       renderRows(data.attempts);
 
-      // 누적 오답 버튼 표시
-      const totalWrong = data.attempts.reduce((sum, a) => sum + (a.wrong || 0), 0);
+      const totalWrong  = data.attempts.reduce((sum, a) => sum + (a.wrong || 0), 0);
       const wrongSection = document.getElementById("wrongRetrySection");
       if (totalWrong > 0) {
         document.getElementById("retryAllWrongLabel").textContent = `누적 오답 약 ${totalWrong}개 중`;
@@ -196,7 +250,7 @@
       }
     } catch (e) {
       info.textContent = `조회 실패: ${e.message}`;
-      list.innerHTML = "";
+      list.innerHTML   = "";
     }
   }
 
@@ -205,3 +259,4 @@
   </script>
 </body>
 </html>
+

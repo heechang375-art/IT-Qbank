@@ -124,6 +124,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS questions (
                     id            INT AUTO_INCREMENT PRIMARY KEY,
                     category      VARCHAR(50) NOT NULL,
+                    question_style VARCHAR(20) NULL,
                     question      TEXT NOT NULL,
                     choice_a      TEXT NOT NULL,
                     choice_b      TEXT NOT NULL,
@@ -133,6 +134,7 @@ def init_db():
                     explanation   TEXT,
                     question_hash VARCHAR(64),
                     INDEX idx_category (category),
+                    INDEX idx_question_style (question_style),
                     UNIQUE KEY uq_question_hash (question_hash)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 """
@@ -173,6 +175,13 @@ def init_db():
             cur.execute("SHOW COLUMNS FROM questions LIKE 'question_hash'")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE questions ADD COLUMN question_hash VARCHAR(64) NULL")
+
+            cur.execute("SHOW COLUMNS FROM questions LIKE 'question_style'")
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE questions ADD COLUMN question_style VARCHAR(20) NULL")
+            cur.execute("SHOW INDEX FROM questions WHERE Key_name='idx_question_style'")
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE questions ADD INDEX idx_question_style (question_style)")
 
             # ── 기존 문제 중복 제거 및 해시 재생성 ──────────
             cur.execute("SELECT id, category, question FROM questions ORDER BY id ASC")

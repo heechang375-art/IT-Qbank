@@ -1,4 +1,4 @@
-/* ─── Reset & Base ──────────────────────────────────────────────────────────── */
+﻿/* ─── Reset & Base ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -14,9 +14,14 @@
   --border:       #334155;
   --text:         #e2e8f0;
   --text-muted:   #94a3b8;
+  --programming:  #22c55e;
+  --web:          #06b6d4;
+  --database:     #f97316;
   --network:      #3b82f6;
-  --infra:        #8b5cf6;
-  --linux:        #f59e0b;
+  --linux:        #eab308;
+  --cloud:        #8b5cf6;
+  --kubernetes:   #0ea5e9;
+  --security:     #ef4444;
   --radius:       12px;
   --shadow:       0 4px 24px rgba(0,0,0,0.4);
 }
@@ -193,7 +198,45 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Category buttons */
-.category-list { display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: space-between; }
+.style-list { display: flex; flex-direction: column; gap: 10px; }
+.style-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: var(--text);
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.style-btn i { font-size: 1.15rem; width: 24px; text-align: center; color: var(--primary-light); }
+.style-btn .style-copy { display: flex; flex-direction: column; gap: 4px; }
+.style-btn .style-copy strong { font-size: 0.98rem; }
+.style-btn .style-copy small { color: var(--text-muted); line-height: 1.45; }
+.style-btn.active, .style-btn:hover {
+  border-color: var(--primary);
+  background: rgba(34,197,94,0.08);
+  box-shadow: 0 10px 24px rgba(15,23,42,0.08);
+}
+.style-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0 12px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--bg-card2);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  border: 1px dashed var(--border);
+}
+.style-divider span { display: inline-flex; align-items: center; gap: 8px; }
+.category-list { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: flex-start; max-height: 70vh; overflow-y: auto; padding-right: 4px; }
 .category-btn {
   display: flex;
   align-items: center;
@@ -209,20 +252,35 @@ a { color: inherit; text-decoration: none; }
   font-family: inherit;
   transition: all 0.2s;
 }
-.category-btn .cat-label { font-weight: 600; font-size: 1.1rem; flex: 1; }
+.category-btn .cat-label { font-weight: 600; font-size: 1.02rem; flex: 1; line-height: 1.35; }
 .category-btn .cat-count { display: none !important; }
 .category-btn i          { font-size: 1.4rem; width: 28px; text-align: center; }
 
-.category-btn.network { border-left: 4px solid var(--network); }
-.category-btn.infra   { border-left: 4px solid var(--infra); }
-.category-btn.linux   { border-left: 4px solid var(--linux); }
+.category-btn.programming { border-left: 4px solid var(--programming); }
+.category-btn.web         { border-left: 4px solid var(--web); }
+.category-btn.database    { border-left: 4px solid var(--database); }
+.category-btn.network     { border-left: 4px solid var(--network); }
+.category-btn.linux       { border-left: 4px solid var(--linux); }
+.category-btn.cloud       { border-left: 4px solid var(--cloud); }
+.category-btn.kubernetes  { border-left: 4px solid var(--kubernetes); }
+.category-btn.security    { border-left: 4px solid var(--security); }
 
+.category-btn.programming.active,
+.category-btn.programming:hover { background: rgba(34,197,94,0.12); border-color: var(--programming); }
+.category-btn.web.active,
+.category-btn.web:hover         { background: rgba(6,182,212,0.12); border-color: var(--web); }
+.category-btn.database.active,
+.category-btn.database:hover    { background: rgba(249,115,22,0.12); border-color: var(--database); }
 .category-btn.network.active,
-.category-btn.network:hover { background: rgba(59,130,246,0.12); border-color: var(--network); }
-.category-btn.infra.active,
-.category-btn.infra:hover   { background: rgba(139,92,246,0.12); border-color: var(--infra); }
+.category-btn.network:hover     { background: rgba(59,130,246,0.12); border-color: var(--network); }
 .category-btn.linux.active,
-.category-btn.linux:hover   { background: rgba(245,158,11,0.12); border-color: var(--linux); }
+.category-btn.linux:hover       { background: rgba(234,179,8,0.12); border-color: var(--linux); }
+.category-btn.cloud.active,
+.category-btn.cloud:hover       { background: rgba(139,92,246,0.12); border-color: var(--cloud); }
+.category-btn.kubernetes.active,
+.category-btn.kubernetes:hover  { background: rgba(14,165,233,0.12); border-color: var(--kubernetes); }
+.category-btn.security.active,
+.category-btn.security:hover    { background: rgba(239,68,68,0.12); border-color: var(--security); }
 
 /* Info cards */
 .info-grid {
@@ -245,9 +303,14 @@ a { color: inherit; text-decoration: none; }
   font-size: 1.5rem;
   margin: 0 auto 14px;
 }
-.info-icon.network { background: rgba(59,130,246,0.15); color: var(--network); }
-.info-icon.infra   { background: rgba(139,92,246,0.15); color: var(--infra); }
-.info-icon.linux   { background: rgba(245,158,11,0.15); color: var(--linux); }
+.info-icon.programming { background: rgba(34,197,94,0.15); color: var(--programming); }
+.info-icon.web         { background: rgba(6,182,212,0.15); color: var(--web); }
+.info-icon.database    { background: rgba(249,115,22,0.15); color: var(--database); }
+.info-icon.network     { background: rgba(59,130,246,0.15); color: var(--network); }
+.info-icon.linux       { background: rgba(234,179,8,0.15); color: var(--linux); }
+.info-icon.cloud       { background: rgba(139,92,246,0.15); color: var(--cloud); }
+.info-icon.kubernetes  { background: rgba(14,165,233,0.15); color: var(--kubernetes); }
+.info-icon.security    { background: rgba(239,68,68,0.15); color: var(--security); }
 .info-card h3      { font-size: 1rem; margin-bottom: 8px; }
 .info-card p       { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
 
@@ -1004,9 +1067,9 @@ a { color: inherit; text-decoration: none; }
   font-size: 1.3rem;
   flex-shrink: 0;
 }
-.cat-info-card.network .cat-info-icon { background: rgba(96,165,250,0.15); color: #60a5fa; }
-.cat-info-card.infra   .cat-info-icon { background: rgba(167,139,250,0.15); color: #a78bfa; }
-.cat-info-card.linux   .cat-info-icon { background: rgba(245,158,11,0.15);  color: #f59e0b; }
+.cat-info-card.programming .cat-info-icon { background: rgba(34,197,94,0.15); color: var(--programming); }
+.cat-info-card.cloud       .cat-info-icon { background: rgba(139,92,246,0.15); color: var(--cloud); }
+.cat-info-card.security    .cat-info-icon { background: rgba(239,68,68,0.15); color: var(--security); }
 
 /* 태블릿: 2열 (오른쪽 설명 숨김) */
 @media (max-width: 900px) {
@@ -1061,12 +1124,18 @@ a { color: inherit; text-decoration: none; }
 }
 .cat-popup-close:hover { color: var(--text); }
 
-.cat-popup-network { background: rgba(96,165,250,0.08);  border-color: #60a5fa; color: #93c5fd; }
-.cat-popup-infra   { background: rgba(167,139,250,0.08); border-color: #a78bfa; color: #c4b5fd; }
-.cat-popup-linux   { background: rgba(245,158,11,0.08);  border-color: #f59e0b; color: #fcd34d; }
-.cat-popup-mixed   { background: rgba(99,102,241,0.08);  border-color: #6366f1; color: #a5b4fc; }
+.cat-popup-programming { background: rgba(34,197,94,0.08); border-color: #22c55e; color: #86efac; }
+.cat-popup-web         { background: rgba(6,182,212,0.08); border-color: #06b6d4; color: #67e8f9; }
+.cat-popup-database    { background: rgba(249,115,22,0.08); border-color: #f97316; color: #fdba74; }
+.cat-popup-network     { background: rgba(96,165,250,0.08); border-color: #60a5fa; color: #93c5fd; }
+.cat-popup-linux       { background: rgba(234,179,8,0.08); border-color: #eab308; color: #fde047; }
+.cat-popup-cloud       { background: rgba(167,139,250,0.08); border-color: #a78bfa; color: #c4b5fd; }
+.cat-popup-kubernetes  { background: rgba(14,165,233,0.08); border-color: #0ea5e9; color: #7dd3fc; }
+.cat-popup-security    { background: rgba(239,68,68,0.08); border-color: #ef4444; color: #fca5a5; }
+.cat-popup-mixed       { background: rgba(99,102,241,0.08); border-color: #6366f1; color: #a5b4fc; }
 
 /* PC에서는 팝업 숨김 (오른쪽 패널로 대체) */
 @media (min-width: 901px) {
   .cat-popup { display: none !important; }
 }
+

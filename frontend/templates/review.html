@@ -52,9 +52,24 @@
 
 <script>
 const CATEGORY_LABEL = {
+  programming: "프로그래밍",
+  web: "웹개발",
+  database: "데이터베이스",
   network: "네트워크",
-  infra: "인프라",
   linux: "리눅스",
+  cloud: "클라우드",
+  kubernetes: "쿠버네티스",
+  security: "보안",
+  infra: "인프라",
+  network_general: "네트워크",
+  network_security: "보안",
+  network_services: "네트워크",
+  infra_general: "클라우드",
+  infra_cloud: "클라우드",
+  infra_kubernetes: "쿠버네티스",
+  linux_general: "리눅스",
+  linux_admin: "리눅스",
+  linux_troubleshooting: "리눅스",
 };
 
 const result = JSON.parse(sessionStorage.getItem("quizResult") || "null");
@@ -118,7 +133,7 @@ if (!result) {
       card.innerHTML = `
         <div class="rc-header">
           <span class="rc-num">Q${globalIdx}</span>
-          <span class="rc-cat">${CATEGORY_LABEL[r.category] || r.category}</span>
+          <span class="rc-cat">${r.category_label || CATEGORY_LABEL[r.category] || r.category}</span>
           ${statusBadge}
         </div>
         <p class="rc-question">${r.question}</p>
@@ -143,7 +158,7 @@ if (!result) {
       const wrongIds = wrongResults.map(r => r.id);
       sessionStorage.setItem("wrongIds",  JSON.stringify(wrongIds));
       sessionStorage.setItem("retryMode", "1");
-      window.location.href = `/quiz/${sessionStorage.getItem("category") || "network"}?limit=${wrongIds.length}`;
+      window.location.href = `/quiz/${sessionStorage.getItem("category") || "programming"}?limit=${wrongIds.length}`;
     });
   }
 
@@ -158,3 +173,4 @@ if (!result) {
 </script>
 </body>
 </html>
+

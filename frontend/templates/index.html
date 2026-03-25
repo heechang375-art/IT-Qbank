@@ -1,4 +1,3 @@
-﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -16,24 +15,26 @@
       <i class="fa-solid fa-server"></i>
       <span>IT 문제은행</span>
     </div>
-    <p class="subtitle">네트워크 · 인프라 · 리눅스 문제를 풀어보세요</p>
+    <p class="subtitle">문제형식을 먼저 고르고, 원하는 IT 카테고리로 들어가 풀어보세요</p>
   </div>
 </header>
 
 <main class="container main-content" style="padding-top:16px; padding-bottom:16px;">
   <div class="home-layout-3col">
 
-    <!-- 왼쪽: 카테고리 선택 -->
     <section class="home-col-left card">
       <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:12px;">
-        <i class="fa-solid fa-folder-open"></i> 카테고리 선택
+        <i class="fa-solid fa-layer-group"></i> 문제형식 선택
       </label>
+      <div id="styleList" class="style-list"></div>
+      <div class="style-divider">
+        <span id="categoryGuide"><i class="fa-solid fa-arrow-down"></i> 문제형식을 먼저 선택하세요</span>
+      </div>
       <div id="categoryList" class="category-list">
-        <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> 로딩 중...</div>
+        <div class="loading-spinner"><i class="fa-solid fa-hand-pointer"></i> 위에서 문제형식을 고르면 카테고리가 열립니다.</div>
       </div>
     </section>
 
-    <!-- 중간: 이름 / 문제수 / 난이도 / 시작 -->
     <section class="home-col-mid card">
       <div class="form-group">
         <label for="userName"><i class="fa-solid fa-user"></i> 이름</label>
@@ -64,31 +65,30 @@
       </button>
     </section>
 
-    <!-- 오른쪽: 카테고리 설명 -->
     <aside class="home-col-right card">
       <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:16px;">
         <i class="fa-solid fa-circle-info"></i> 카테고리 안내
       </label>
       <div class="cat-info-panel-v">
-        <div class="cat-info-card network">
-          <div class="cat-info-icon"><i class="fa-solid fa-network-wired"></i></div>
+        <div class="cat-info-card programming">
+          <div class="cat-info-icon"><i class="fa-solid fa-code"></i></div>
           <div>
-            <strong>네트워크</strong>
-            <p>OSI, TCP/IP, 라우팅, 방화벽, DNS, DHCP 등 네트워크 핵심 개념</p>
+            <strong>개발 기초</strong>
+            <p>프로그래밍, 웹개발, 데이터베이스처럼 입문자와 실무자가 많이 푸는 축을 먼저 배치했습니다.</p>
           </div>
         </div>
-        <div class="cat-info-card infra">
+        <div class="cat-info-card cloud">
           <div class="cat-info-icon"><i class="fa-solid fa-cloud"></i></div>
           <div>
-            <strong>인프라</strong>
-            <p>가상화, 컨테이너, Kubernetes, IaC, CI/CD, 모니터링 등 운영 지식</p>
+            <strong>운영과 클라우드</strong>
+            <p>네트워크, 리눅스, 클라우드, 쿠버네티스를 별도 주제로 분리해 실무 학습 흐름을 살렸습니다.</p>
           </div>
         </div>
-        <div class="cat-info-card linux">
-          <div class="cat-info-icon"><i class="fa-brands fa-linux"></i></div>
+        <div class="cat-info-card security">
+          <div class="cat-info-icon"><i class="fa-solid fa-shield-halved"></i></div>
           <div>
-            <strong>리눅스</strong>
-            <p>파일 권한, 프로세스, 명령어, 서비스 관리, 시스템 설정 등 실무 중심</p>
+            <strong>보안</strong>
+            <p>인증, 취약점, 암호화, 운영 보안처럼 범용적으로 많이 풀리는 영역을 독립 카테고리로 뒀습니다.</p>
           </div>
         </div>
       </div>
@@ -105,15 +105,58 @@
 
 <script>
 const API_BASE = "/api";
+const QUESTION_STYLE_META = {
+  mixed: { label: "형식 혼합", icon: "fa-shuffle", desc: "개념형, 실무형, 자격시험 스타일을 섞어서 출제합니다." },
+  concept: { label: "개념형", icon: "fa-lightbulb", desc: "핵심 개념과 정의를 빠르게 점검하는 기본형 문제입니다." },
+  practical: { label: "실무형", icon: "fa-screwdriver-wrench", desc: "운영, 설계, 장애 대응처럼 현업 맥락을 담은 문제입니다." },
+  cert: { label: "자격시험 스타일", icon: "fa-file-pen", desc: "자격시험 분위기를 참고한 시나리오형 객관식 문제입니다." },
+};
 const CATEGORY_META = {
-  network: { label: "네트워크", icon: "fa-network-wired", color: "network" },
-  infra:   { label: "인프라",   icon: "fa-cloud",         color: "infra"   },
-  linux:   { label: "리눅스",   icon: "fa-brands fa-linux", color: "linux" },
+  programming: { label: "프로그래밍", icon: "fa-code", color: "programming", desc: "Python, Java, JavaScript, 문법, 객체지향, 자료구조, 디버깅 등 개발 전반" },
+  web: { label: "웹개발", icon: "fa-globe", color: "web", desc: "HTTP, REST API, 프론트엔드, 백엔드, 인증, 쿠키/세션 등 웹 개발 핵심" },
+  database: { label: "데이터베이스", icon: "fa-database", color: "database", desc: "SQL, 정규화, 인덱스, 트랜잭션, JOIN, 모델링, 튜닝 등 데이터베이스 핵심" },
+  network: { label: "네트워크", icon: "fa-network-wired", color: "network", desc: "OSI, TCP/IP, 라우팅, 스위칭, DNS, DHCP, 로드밸런싱 등 네트워크 전반" },
+  linux: { label: "리눅스", icon: "fa-brands fa-linux", color: "linux", desc: "명령어, 파일 시스템, 권한, 서비스, 프로세스, 로그 분석 등 리눅스 운영 전반" },
+  cloud: { label: "클라우드", icon: "fa-cloud", color: "cloud", desc: "AWS, Azure, GCP, 가상화, 스토리지, IaC, 모니터링 등 클라우드 운영 전반" },
+  kubernetes: { label: "쿠버네티스", icon: "fa-dharmachakra", color: "kubernetes", desc: "컨테이너, Pod, Deployment, Service, Ingress, 롤링업데이트, 장애 대응 등 실무 중심" },
+  security: { label: "보안", icon: "fa-shield-halved", color: "security", desc: "인증, 인가, 암호화, 취약점, 네트워크 보안, 시스템 보안 등 보안 기초 전반" },
+};
+const CAT_DESC = {
+  all: { label: "전체 혼합", icon: "fa-solid fa-shuffle", color: "mixed", desc: "선택한 문제형식 안에서 모든 IT 카테고리를 섞어 출제합니다." },
+  programming: { label: "프로그래밍", icon: "fa-solid fa-code", color: "programming", desc: "Python, Java, JavaScript, 문법, 객체지향, 자료구조, 디버깅 등 개발 전반" },
+  web: { label: "웹개발", icon: "fa-solid fa-globe", color: "web", desc: "HTTP, REST API, 프론트엔드, 백엔드, 인증, 쿠키/세션 등 웹 개발 핵심" },
+  database: { label: "데이터베이스", icon: "fa-solid fa-database", color: "database", desc: "SQL, 정규화, 인덱스, 트랜잭션, JOIN, 모델링, 튜닝 등 데이터베이스 핵심" },
+  network: { label: "네트워크", icon: "fa-solid fa-network-wired", color: "network", desc: "OSI, TCP/IP, 라우팅, 스위칭, DNS, DHCP, 로드밸런싱 등 네트워크 전반" },
+  linux: { label: "리눅스", icon: "fa-brands fa-linux", color: "linux", desc: "명령어, 파일 시스템, 권한, 서비스, 프로세스, 로그 분석 등 리눅스 운영 전반" },
+  cloud: { label: "클라우드", icon: "fa-solid fa-cloud", color: "cloud", desc: "AWS, Azure, GCP, 가상화, 스토리지, IaC, 모니터링 등 클라우드 운영 전반" },
+  kubernetes: { label: "쿠버네티스", icon: "fa-solid fa-dharmachakra", color: "kubernetes", desc: "컨테이너, Pod, Deployment, Service, Ingress, 롤링업데이트, 장애 대응 등 실무 중심" },
+  security: { label: "보안", icon: "fa-solid fa-shield-halved", color: "security", desc: "인증, 인가, 암호화, 취약점, 네트워크 보안, 시스템 보안 등 보안 기초 전반" },
 };
 
+let selectedStyle = null;
 let selectedCategory = null;
-let selectedCount    = 10;
-let selectedDiff     = "mixed";
+let selectedCount = 10;
+let selectedDiff = "mixed";
+let categoryData = [];
+
+function renderStyleOptions() {
+  const list = document.getElementById("styleList");
+  list.innerHTML = "";
+  Object.entries(QUESTION_STYLE_META).forEach(([key, meta]) => {
+    const btn = document.createElement("button");
+    btn.className = "style-btn";
+    btn.dataset.style = key;
+    btn.innerHTML = `
+      <i class="fa-solid ${meta.icon}"></i>
+      <span class="style-copy">
+        <strong>${meta.label}</strong>
+        <small>${meta.desc}</small>
+      </span>
+    `;
+    btn.addEventListener("click", () => selectStyle(key, btn));
+    list.appendChild(btn);
+  });
+}
 
 async function loadCategories() {
   const list = document.getElementById("categoryList");
@@ -123,46 +166,8 @@ async function loadCategories() {
     if (!res.ok) throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
     const data = await res.json();
     if (!data.categories || data.categories.length === 0) throw new Error("등록된 카테고리가 없습니다.");
-
-    list.innerHTML = "";
-
-    // 전체 혼합 버튼
-    const mixedBtn = document.createElement("button");
-    mixedBtn.className = "category-btn mixed-cat";
-    mixedBtn.dataset.cat = "all";
-    mixedBtn.innerHTML = `
-      <i class="fa-solid fa-shuffle" style="color:var(--primary-light);font-size:1.2rem;width:24px;text-align:center"></i>
-      <span class="cat-label">전체 혼합</span>
-    `;
-    mixedBtn.addEventListener("click", () => selectCategory("all", mixedBtn));
-    list.appendChild(mixedBtn);
-
-    // 개별 카테고리 버튼
-    data.categories.forEach(cat => {
-      const meta = CATEGORY_META[cat.name] || { label: cat.name, icon: "fa-folder", color: "" };
-      const btn  = document.createElement("button");
-      btn.className = `category-btn ${meta.color}`;
-      btn.dataset.cat = cat.name;
-
-      let dbBadge = "";
-      if (cat.count >= 150) {
-        dbBadge = `<span class="db-badge db-full"><i class="fa-solid fa-database"></i> DB충분</span>`;
-      } else if (cat.count >= 100) {
-        dbBadge = `<span class="db-badge db-mid"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
-      } else if (cat.count >= 50) {
-        dbBadge = `<span class="db-badge db-low"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
-      } else {
-        dbBadge = `<span class="db-badge db-empty"><i class="fa-solid fa-wand-magic-sparkles"></i> AI출제</span>`;
-      }
-
-      btn.innerHTML = `
-        <i class="fa-solid ${meta.icon}"></i>
-        <span class="cat-label">${meta.label}</span>
-        ${dbBadge}
-      `;
-      btn.addEventListener("click", () => selectCategory(cat.name, btn));
-      list.appendChild(btn);
-    });
+    categoryData = data.categories;
+    renderCategories();
   } catch (e) {
     const is503 = e.message.includes("503");
     list.innerHTML = `
@@ -175,24 +180,72 @@ async function loadCategories() {
       <button onclick="loadCategories()" class="btn btn-secondary" style="margin-top:12px">
         <i class="fa-solid fa-rotate-right"></i> 다시 시도
       </button>`;
-    // 503이면 5초 후 자동 재시도
     if (is503) setTimeout(loadCategories, 5000);
   }
 }
 
-const CAT_DESC = {
-  all:     { label: "전체 혼합", icon: "fa-solid fa-shuffle",         color: "mixed",   desc: "네트워크·인프라·리눅스 전 범위에서 랜덤 출제됩니다." },
-  network: { label: "네트워크", icon: "fa-solid fa-network-wired",    color: "network", desc: "OSI, TCP/IP, 라우팅, 방화벽, DNS, DHCP 등 네트워크 핵심 개념" },
-  infra:   { label: "인프라",   icon: "fa-solid fa-cloud",            color: "infra",   desc: "가상화, 컨테이너, Kubernetes, IaC, CI/CD, 모니터링 등 운영 지식" },
-  linux:   { label: "리눅스",   icon: "fa-brands fa-linux",           color: "linux",   desc: "파일 권한, 프로세스, 명령어, 서비스 관리, 시스템 설정 등 실무 중심" },
-};
+function renderCategories() {
+  const list = document.getElementById("categoryList");
+  const guide = document.getElementById("categoryGuide");
+  if (!selectedStyle) {
+    guide.innerHTML = '<i class="fa-solid fa-arrow-down"></i> 문제형식을 먼저 선택하세요';
+    list.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-hand-pointer"></i> 위에서 문제형식을 고르면 카테고리가 열립니다.</div>';
+    return;
+  }
+
+  const styleLabel = QUESTION_STYLE_META[selectedStyle]?.label || selectedStyle;
+  guide.innerHTML = `<i class="fa-solid fa-folder-open"></i> ${styleLabel}으로 풀 카테고리를 고르세요`;
+  list.innerHTML = "";
+
+  const mixedBtn = document.createElement("button");
+  mixedBtn.className = "category-btn mixed-cat";
+  mixedBtn.dataset.cat = "all";
+  mixedBtn.innerHTML = `
+    <i class="fa-solid fa-shuffle" style="color:var(--primary-light);font-size:1.2rem;width:24px;text-align:center"></i>
+    <span class="cat-label">전체 혼합</span>
+    <span class="db-badge db-full"><i class="fa-solid fa-layer-group"></i> ${styleLabel}</span>
+  `;
+  mixedBtn.addEventListener("click", () => selectCategory("all", mixedBtn));
+  list.appendChild(mixedBtn);
+
+  categoryData.forEach(cat => {
+    const meta = CATEGORY_META[cat.name] || {
+      label: cat.label || cat.name,
+      icon: cat.icon || "fa-folder",
+      color: cat.theme || "",
+      desc: cat.description || "",
+    };
+    const btn = document.createElement("button");
+    btn.className = `category-btn ${meta.color}`;
+    btn.dataset.cat = cat.name;
+
+    let dbBadge = "";
+    if (cat.count >= 150) {
+      dbBadge = `<span class="db-badge db-full"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
+    } else if (cat.count >= 100) {
+      dbBadge = `<span class="db-badge db-mid"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
+    } else if (cat.count >= 50) {
+      dbBadge = `<span class="db-badge db-low"><i class="fa-solid fa-database"></i> ${cat.count}문제</span>`;
+    } else {
+      dbBadge = `<span class="db-badge db-empty"><i class="fa-solid fa-wand-magic-sparkles"></i> ${cat.count}문제 · AI병행</span>`;
+    }
+
+    const iconClass = meta.icon.includes(" ") ? meta.icon : `fa-solid ${meta.icon}`;
+    btn.innerHTML = `
+      <i class="${iconClass}"></i>
+      <span class="cat-label">${cat.label || meta.label}</span>
+      ${dbBadge}
+    `;
+    btn.addEventListener("click", () => selectCategory(cat.name, btn));
+    list.appendChild(btn);
+  });
+}
 
 function isMobileView() {
   return window.innerWidth <= 900;
 }
 
 function showCatPopup(name, anchorBtn) {
-  // 이미 같은 팝업이 열려 있으면 닫기
   const existing = document.getElementById("catPopup");
   if (existing) {
     if (existing.dataset.cat === name) {
@@ -220,10 +273,8 @@ function showCatPopup(name, anchorBtn) {
     </button>
   `;
 
-  // 버튼 바로 아래에 삽입
   anchorBtn.parentNode.insertBefore(popup, anchorBtn.nextSibling);
 
-  // 외부 클릭 시 닫기 (약간 딜레이)
   setTimeout(() => {
     document.addEventListener("click", function closePop(e) {
       if (!popup.contains(e.target) && e.target !== anchorBtn) {
@@ -234,13 +285,20 @@ function showCatPopup(name, anchorBtn) {
   }, 100);
 }
 
+function selectStyle(name, btn) {
+  document.querySelectorAll(".style-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedStyle = name;
+  selectedCategory = null;
+  renderCategories();
+  checkReady();
+}
+
 function selectCategory(name, btn) {
   document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
   selectedCategory = name;
   checkReady();
-
-  // 모바일/태블릿에서만 팝업
   if (isMobileView()) {
     showCatPopup(name, btn);
   }
@@ -267,26 +325,28 @@ document.querySelectorAll(".diff-btn").forEach(btn => {
 
 function checkReady() {
   const name = document.getElementById("userName").value.trim();
-  document.getElementById("startBtn").disabled = !(name && selectedCategory);
+  document.getElementById("startBtn").disabled = !(name && selectedStyle && selectedCategory);
 }
 document.getElementById("userName").addEventListener("input", checkReady);
 
 document.getElementById("startBtn").addEventListener("click", () => {
   const name = document.getElementById("userName").value.trim();
-  if (!name || !selectedCategory) return;
+  if (!name || !selectedStyle || !selectedCategory) return;
 
-  sessionStorage.setItem("userName",      name);
-  sessionStorage.setItem("category",      selectedCategory);
+  sessionStorage.setItem("userName", name);
+  sessionStorage.setItem("questionStyle", selectedStyle);
+  sessionStorage.setItem("category", selectedCategory);
   sessionStorage.setItem("questionCount", String(selectedCount));
-  sessionStorage.setItem("difficulty",    selectedDiff);
+  sessionStorage.setItem("difficulty", selectedDiff);
 
   if (selectedCategory === "all") {
-    window.location.href = `/quiz/all?limit=${selectedCount}&difficulty=${selectedDiff}`;
+    window.location.href = `/quiz/all?limit=${selectedCount}&difficulty=${selectedDiff}&style=${selectedStyle}`;
   } else {
-    window.location.href = `/quiz/${selectedCategory}?limit=${selectedCount}&difficulty=${selectedDiff}`;
+    window.location.href = `/quiz/${selectedCategory}?limit=${selectedCount}&difficulty=${selectedDiff}&style=${selectedStyle}`;
   }
 });
 
+renderStyleOptions();
 loadCategories();
 </script>
 </body>

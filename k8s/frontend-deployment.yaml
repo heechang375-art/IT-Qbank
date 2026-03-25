@@ -22,8 +22,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: collapse/quiz-frontend:latest
-          imagePullPolicy: Always
+          image: collapse/quiz-frontend:v0.2.5
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:

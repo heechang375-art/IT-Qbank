@@ -47,7 +47,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: ${DOCKER_HUB_USERNAME:-yourname}/quiz-backend:${IMAGE_TAG:-latest}
+    image: ${DOCKER_HUB_USERNAME:-yourname}/quiz-backend:${BACKEND_IMAGE_TAG:-0.7.1}
     container_name: quiz_backend
     restart: unless-stopped
     environment:
@@ -80,7 +80,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: ${DOCKER_HUB_USERNAME:-yourname}/quiz-frontend:${IMAGE_TAG:-latest}
+    image: ${DOCKER_HUB_USERNAME:-yourname}/quiz-frontend:${FRONTEND_IMAGE_TAG:-0.2.5}
     container_name: quiz_frontend
     restart: unless-stopped
     environment:

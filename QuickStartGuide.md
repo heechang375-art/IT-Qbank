@@ -1,39 +1,63 @@
-﻿# QuickStartGuide
+# QuickStartGuide
 
-## 1. 가장 빠른 실행 (Docker)
+현재 폴더의 코드와 Kubernetes 매니페스트 기준으로 바로 실행할 수 있도록 정리한 빠른 시작 문서입니다.
 
-**Windows:**
-```bash
+---
+
+## 1. 가장 빠른 실행
+
+### Docker Compose
+
+Windows:
+
+```powershell
 cd IT-Qbank
 copy .env.example .env
-# .env에서 GEMINI_API_KEY 값 입력
-
-docker compose up -d --build
 ```
 
-**Linux/macOS:**
+Linux/macOS:
+
 ```bash
 cd IT-Qbank
 cp .env.example .env
-# .env에서 GEMINI_API_KEY 값 입력
+```
 
+필수 확인 값:
+
+- `GEMINI_API_KEY`
+- `ADMIN_SECRET_KEY`
+
+권장 확인 값:
+
+- `GEMINI_TIMEOUT`
+- `AI_REQUEST_BUDGET_SEC`
+- `FRONTEND_PROXY_TIMEOUT`
+- `FRONTEND_PROXY_CONNECT_TIMEOUT`
+
+실행:
+
+```bash
 docker compose up -d --build
 ```
 
 확인:
-- 프론트: `http://localhost:8080`
-- 백엔드: `http://localhost:5000/api/health`
+
+- 프론트엔드: `http://localhost:8080`
+- 백엔드 헬스: `http://localhost:5000/api/health`
+- AI 헬스: `http://localhost:5000/api/ai/health`
 
 중지:
+
 ```bash
 docker compose down
 ```
 
 ---
 
-## 2. 로컬 실행 (컨테이너 없이)
+## 2. 로컬 Python 실행
 
 ### 2-1. MySQL 준비
+
 ```sql
 CREATE DATABASE quizdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'quizuser'@'%' IDENTIFIED BY 'quizpassword';
@@ -41,8 +65,11 @@ GRANT ALL PRIVILEGES ON quizdb.* TO 'quizuser'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### 2-2. 백엔드 (Windows)
-```bash
+### 2-2. 백엔드 실행
+
+Windows:
+
+```powershell
 cd backend
 python -m venv venv
 venv\Scripts\activate
@@ -53,16 +80,20 @@ set DB_PORT=3306
 set DB_NAME=quizdb
 set DB_USER=quizuser
 set DB_PASSWORD=quizpassword
+set USE_SQLITE_FALLBACK=false
 set GEMINI_API_KEY=YOUR_GEMINI_KEY
 set GEMINI_MODEL=gemini-2.5-flash
-set GEMINI_TIMEOUT=120
-set AI_REQUEST_BUDGET_SEC=200
+set GEMINI_MODEL_CANDIDATES=gemini-2.5-flash
+set GEMINI_TIMEOUT=60
+set AI_REQUEST_BUDGET_SEC=40
+set ADMIN_SECRET_KEY=YOUR_STRONG_RANDOM_KEY
 
 python init_db.py
 python app.py
 ```
 
-### 2-2. 백엔드 (Linux/macOS)
+Linux/macOS:
+
 ```bash
 cd backend
 python3 -m venv venv
@@ -74,28 +105,36 @@ export DB_PORT=3306
 export DB_NAME=quizdb
 export DB_USER=quizuser
 export DB_PASSWORD=quizpassword
+export USE_SQLITE_FALLBACK=false
 export GEMINI_API_KEY=YOUR_GEMINI_KEY
 export GEMINI_MODEL=gemini-2.5-flash
-export GEMINI_TIMEOUT=120
-export AI_REQUEST_BUDGET_SEC=200
+export GEMINI_MODEL_CANDIDATES=gemini-2.5-flash
+export GEMINI_TIMEOUT=60
+export AI_REQUEST_BUDGET_SEC=40
+export ADMIN_SECRET_KEY=YOUR_STRONG_RANDOM_KEY
 
 python init_db.py
 python app.py
 ```
 
-### 2-3. 프론트 (Windows)
-```bash
+### 2-3. 프론트엔드 실행
+
+Windows:
+
+```powershell
 cd frontend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 
 set BACKEND_URL=http://localhost:5000
-set FRONTEND_PROXY_TIMEOUT=300
+set FRONTEND_PROXY_TIMEOUT=120
+set FRONTEND_PROXY_CONNECT_TIMEOUT=5
 python app.py
 ```
 
-### 2-3. 프론트 (Linux/macOS)
+Linux/macOS:
+
 ```bash
 cd frontend
 python3 -m venv venv
@@ -103,103 +142,77 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 export BACKEND_URL=http://localhost:5000
-export FRONTEND_PROXY_TIMEOUT=300
+export FRONTEND_PROXY_TIMEOUT=120
+export FRONTEND_PROXY_CONNECT_TIMEOUT=5
 python app.py
 ```
 
 ---
 
-## 3. 동작 확인 체크리스트
-1. `GET /api/health`가 200인지 확인
-2. 문제 선택 수(5/10/15/20)와 실제 출제 수가 동일한지 확인
-3. 헤더의 `문제 x / y`와 `%` 진행률이 정상 표시되는지 확인
-4. 난이도 선택(쉬움/혼합/어려움)이 정상 동작하는지 확인
-5. `source=ai` 호출 시 AI 생성 + DB 보강이 정상 동작하는지 확인
-6. 이력에서 특정 시도를 눌렀을 때 리뷰 화면으로 이동되는지 확인
-7. 이력 페이지에서 누적 오답 N문제 출제가 정상 동작하는지 확인
+## 3. 현재 코드 기준 확인 포인트
+
+기능 확인 체크리스트:
+
+1. `GET /api/health` 응답에 `status=ok` 와 `db_mode`가 포함되는지 확인
+2. `GET /api/categories` 응답에 8개 카테고리가 노출되는지 확인
+3. 카테고리별 출제 시 `style=concept|practical|cert|mixed`가 반영되는지 확인
+4. 혼합 출제 `GET /api/questions/all/mixed`가 정상 동작하는지 확인
+5. 사용자 이름을 넣고 두 번 이상 요청했을 때 최근 문제 중복 회피가 동작하는지 확인
+6. 결과 제출 후 `GET /api/history/<user>`에서 이력이 보이는지 확인
+7. `GET /api/history/<user>/wrong-ids`가 오답 ID를 반환하는지 확인
+8. `POST /api/retry-wrong`으로 오답 재출제가 되는지 확인
+9. `DELETE /api/admin/purge-questions` 호출 시 `X-Admin-Key` 없으면 실패하는지 확인
+10. `GET /api/ai/health?check=1`로 Gemini 네트워크 도달 여부를 확인
 
 예시 호출:
+
 ```bash
-# 기본 출제
-curl "http://localhost:5000/api/questions/linux?limit=10&shuffle=1&source=ai&user=tester"
-
-# 난이도 지정 출제
-curl "http://localhost:5000/api/questions/network?limit=10&difficulty=hard&source=ai&user=tester"
-
-# 누적 오답 ID 조회
+curl "http://localhost:5000/api/categories"
+curl "http://localhost:5000/api/questions/programming?limit=10&difficulty=hard&style=cert&user=tester"
+curl "http://localhost:5000/api/questions/all/mixed?limit=10&difficulty=mixed&style=practical&user=tester"
+curl "http://localhost:5000/api/history/tester"
 curl "http://localhost:5000/api/history/tester/wrong-ids"
+curl "http://localhost:5000/api/ai/health?check=1"
 ```
 
----
+관리자 API 예시:
 
-## 4. DB 확인 (한글 깨짐 대응 포함)
-
-### 4-1. CLI 접속 권장 방식
 ```bash
-chcp 65001
-mysql -h localhost -P 3306 -u quizuser -p --default-character-set=utf8mb4 quizdb
-```
-
-```sql
-SET NAMES utf8mb4;
-SHOW VARIABLES LIKE 'character_set_%';
-SHOW VARIABLES LIKE 'collation_%';
-```
-
-### 4-2. 문제/이력 확인
-```sql
-SELECT id, category, LEFT(question, 80) AS q, created_at
-FROM questions
-ORDER BY id DESC
-LIMIT 20;
-
-SELECT attempt_id, user_id, category, total, correct, wrong, score_percent, created_at
-FROM quiz_attempts
-ORDER BY attempt_id DESC
-LIMIT 20;
+curl -X DELETE "http://localhost:5000/api/admin/purge-questions" \
+  -H "X-Admin-Key: YOUR_ADMIN_SECRET_KEY"
 ```
 
 ---
 
-## 5. 문제 해결
+## 4. Kubernetes 빠른 적용
 
-| 증상 | 확인 사항 |
-|------|----------|
-| AI 403/404 | `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-2.5-flash` 확인 |
-| AI 429 | 요청 한도 초과 — 잠시 후 재시도 |
-| AI 503 | Gemini 서버 과부하 — 잠시 후 재시도 |
-| AI 타임아웃 | `GEMINI_TIMEOUT` 값 증가 (기본 120초), 문제 수 줄이기 |
-| AI NETWORK_BLOCKED | `GET /api/ai/health?check=1`으로 TCP 443 egress 차단 여부 확인 (Kubernetes NetworkPolicy 점검) |
-| 한글 깨짐 | DB 저장이 아닌 터미널 문자셋 문제인지 먼저 확인 (`chcp 65001`) |
-| 출제 수 부족 | backend 로그에서 AI 응답 파싱 오류/타임아웃 확인 |
-| SQLite 사용 중 | `USE_SQLITE_FALLBACK=true` 상태에서 MySQL 연결 불가 시 자동 전환 — `GET /api/health` 응답의 `db_mode` 필드로 확인 |
-| 프론트 502 | `FRONTEND_PROXY_TIMEOUT` 값 확인 (기본 300초) |
+### 4-1. 적용 파일
 
----
+현재 `k8s` 폴더 기준 핵심 파일:
 
-## 6. 배포 전 최소 점검
-1. `.env`가 git 추적 제외인지 확인
-2. `python -m py_compile backend/app.py backend/init_db.py frontend/app.py`
-3. `GET /api/history/<user>/<attempt_id>` 응답이 정상인지 확인
-4. `GET /api/history/<user>/wrong-ids` 응답이 정상인지 확인
-5. `git status`로 문서/이미지 변경 파일 확인
+- `00-namespace.yaml`
+- `configmap.yaml`
+- `secret.yaml`
+- `mysql-pvc.yaml`
+- `mysql-deployment.yaml`
+- `mysql-service.yaml`
+- `backend-deployment.yaml`
+- `backend-service.yaml`
+- `frontend-deployment.yaml`
+- `frontend-service.yaml`
+- `network-policy.yaml`
+- `gateway.yaml`
 
----
+### 4-2. 적용 순서
 
-## 7. Kubernetes 배포
+```powershell
+.\k8s\apply-ordered.ps1
+```
 
-### 7-1. 공통 준비
+또는:
 
-예시 파일 복사 후 `REPLACE_*` 값 수정:
 ```bash
-copy k8s\examples\configmap.example.yaml k8s\configmap.yaml
-copy k8s\examples\secret.example.yaml k8s\secret.yaml
-```
-
-공통 리소스 적용 (방법 A/B 모두 동일):
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/hc-rq.yaml
+kubectl apply -f k8s/00-namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/mysql-pvc.yaml
@@ -210,132 +223,46 @@ kubectl apply -f k8s/backend-service.yaml
 kubectl apply -f k8s/frontend-deployment.yaml
 kubectl apply -f k8s/frontend-service.yaml
 kubectl apply -f k8s/network-policy.yaml
-```
-
-> **이미지 재빌드가 필요한 경우** (코드/HTML/CSS 변경 시):
-> ```bash
-> docker build -t <registry>/it-qbank-backend:latest ./backend
-> docker build -t <registry>/it-qbank-frontend:latest ./frontend
-> docker push <registry>/it-qbank-backend:latest
-> docker push <registry>/it-qbank-frontend:latest
-> kubectl rollout restart deployment/backend-deployment -n hc-quiz-bank
-> kubectl rollout restart deployment/frontend-deployment -n hc-quiz-bank
-> ```
-
----
-
-### 7-2. 방법 A: NodePort만 사용 (Gateway 없음, 테스트용)
-
-Rancher Desktop 등 로컬 환경에서 `gateway.yaml` 없이 테스트하는 방법입니다.
-
-**추가 작업 없음** — 위 공통 리소스만 적용하면 됩니다.
-
-트래픽 흐름:
-```
-브라우저 → NodeIP:30080 (frontend NodePort)
-           └─ /api/* → 프론트엔드 프록시 → backend-service:5000
-```
-
-접속 확인:
-```bash
-# 노드 IP 확인 (Rancher Desktop은 보통 127.0.0.1)
-kubectl get nodes -o wide
-
-# 서비스 확인
-kubectl get svc -n hc-quiz-bank
-```
-
-접속 URL:
-```
-http://<노드IP>:30080
-```
-
-동작 확인:
-```bash
-curl http://<노드IP>:30080/api/health
-curl http://<노드IP>:30080/api/categories
-```
-
-> **주의:** 이 방법에서는 `/api/*` 요청이 프론트엔드 컨테이너를 경유합니다.  
-> `frontend-config` ConfigMap의 `BACKEND_URL=http://backend-service:5000`이 올바르게 설정되어 있어야 합니다.
-
----
-
-### 7-3. 방법 B: Gateway API 사용 (운영 권장)
-
-클러스터에 Gateway API CRD와 `traefik` gatewayClassName이 준비된 환경에서 사용합니다.
-
-**공통 리소스 적용 후 gateway.yaml 추가 적용:**
-```bash
 kubectl apply -f k8s/gateway.yaml
 ```
 
-트래픽 흐름:
-```
-브라우저 → Gateway:8000
-  ├─ /api/*  → backend-service:5000   (Gateway가 직접 라우팅)
-  └─ /       → frontend-service:8080
-```
+### 4-3. 접속 주소
 
-Gateway 상태 확인:
-```bash
-kubectl get gateway -n hc-quiz-bank
-kubectl get httproute -n hc-quiz-bank
-kubectl get svc -n hc-quiz-bank
-```
+- NodePort: `http://<NODE_IP>:30080`
+- Gateway API: `http://<GATEWAY_IP>:8000`
 
-Gateway IP 확인 및 접속:
-```bash
-kubectl get gateway quiz-gateway -n hc-quiz-bank -o jsonpath='{.status.addresses}'
-```
-
-접속 URL:
-```
-http://<Gateway-IP>:8000
-```
-
-동작 확인:
-```bash
-curl http://<Gateway-IP>:8000/api/health
-curl http://<Gateway-IP>:8000/api/categories
-curl http://<Gateway-IP>:8000/
-```
-
-> **gatewayClassName 변경이 필요한 경우:**  
-> `k8s/gateway.yaml`에서 `gatewayClassName: traefik`을 환경에 맞게 변경하세요.  
-> 예: `nginx`, `istio`, `cilium`, `kong` 등
-
-> **Gateway API CRD 미설치 시:**  
-> `kubectl apply -f k8s/gateway.yaml` 실패 → 방법 A(NodePort)로만 사용하거나  
-> 클러스터 관리자에게 Gateway API CRD 설치를 요청하세요.
-
----
-
-### 7-4. 방법 비교
-
-| 항목 | 방법 A (NodePort) | 방법 B (Gateway API) |
-|------|-------------------|----------------------|
-| 접속 포트 | `30080` | `8000` |
-| API 라우팅 | 프론트엔드 프록시 경유 | Gateway 직접 라우팅 |
-| Gateway CRD 필요 | 불필요 | 필요 |
-| 적합한 환경 | 로컬/테스트 | 운영/스테이징 |
-| gateway.yaml 적용 | 불필요 | 필요 |
-
----
-
-## 8. Kubernetes 파드 상태 확인
+### 4-4. 확인 명령
 
 ```bash
 kubectl get pods -n hc-quiz-bank
-kubectl logs -n hc-quiz-bank deployment/backend-deployment
-kubectl logs -n hc-quiz-bank deployment/frontend-deployment
+kubectl get svc -n hc-quiz-bank
+kubectl get gateway -n hc-quiz-bank
+kubectl logs -n hc-quiz-bank deployment/backend
+kubectl logs -n hc-quiz-bank deployment/frontend
 ```
 
-AI 네트워크 연결 확인 (backend에서 Gemini API 접근 가능 여부):
-```bash
-# NodePort 환경
-curl "http://<노드IP>:30080/api/ai/health?check=1"
+---
 
-# Gateway 환경
-curl "http://<Gateway-IP>:8000/api/ai/health?check=1"
-```
+## 5. 트러블슈팅
+
+| 증상 | 확인할 항목 |
+|------|-------------|
+| 프론트 502/503/504 | `BACKEND_URL`, `FRONTEND_PROXY_TIMEOUT`, `FRONTEND_PROXY_CONNECT_TIMEOUT` |
+| AI 호출 실패 | `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TIMEOUT`, `AI_REQUEST_BUDGET_SEC` |
+| `NETWORK_BLOCKED` | `GET /api/ai/health?check=1` 결과 확인 |
+| DB 연결 실패 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
+| SQLite로 붙음 | `USE_SQLITE_FALLBACK=true` 여부와 `/api/health`의 `db_mode` 확인 |
+| 관리자 API 401 | `X-Admin-Key` 값과 `ADMIN_SECRET_KEY` 일치 여부 확인 |
+| k8s 백엔드 미기동 | `backend-secret`, `backend-config`, `mysql-service` 연결 확인 |
+| NodePort 접속 불가 | `frontend-service`의 `nodePort: 30080` 노출 여부 확인 |
+| Gateway 접속 불가 | Gateway API CRD 및 `gatewayClassName: traefik` 존재 여부 확인 |
+
+---
+
+## 6. 배포 전 최소 점검
+
+1. `.env`가 git 추적 대상이 아닌지 확인
+2. `k8s/secret.yaml`에 실제 운영 키를 그대로 커밋하지 않았는지 확인
+3. `ADMIN_SECRET_KEY`가 충분히 긴 랜덤 문자열인지 확인
+4. 이미지 태그와 배포 이미지 주소가 실제 레지스트리와 일치하는지 확인
+5. `GET /api/health`, `GET /api/categories`, `GET /api/ai/health`를 모두 점검
