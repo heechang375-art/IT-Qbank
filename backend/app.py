@@ -1,4 +1,4 @@
-﻿"""
+"""
 Popular IT Quiz Bank - Backend API
 """
 
@@ -27,7 +27,11 @@ load_dotenv()
 # Flask 앱 초기화 및 CORS 설정
 # ──────────────────────────────────────────────────────────
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+# CORS 허용 오리진: 기본은 전체(*) 허용(개발 편의).
+# 운영에서는 CORS_ORIGINS="https://example.com,https://app.example.com" 처럼 좁힐 것.
+_cors_origins = os.getenv("CORS_ORIGINS", "*").strip()
+_origins = "*" if _cors_origins == "*" else [o.strip() for o in _cors_origins.split(",") if o.strip()]
+CORS(app, resources={r"/*": {"origins": _origins}})
 
 # ──────────────────────────────────────────────────────────
 # 환경 변수 로드
@@ -55,6 +59,11 @@ AI_REQUEST_BUDGET_SEC = int(os.getenv("AI_REQUEST_BUDGET_SEC", "60"))
 # 부팅 시 DB 정리 옵션
 PURGE_DEFAULT_ON_BOOT = os.getenv("PURGE_DEFAULT_ON_BOOT", "false").lower() == "true"
 PURGE_SHORT_ON_BOOT   = os.getenv("PURGE_SHORT_ON_BOOT", "false").lower() == "true"
+
+# 관리자 토큰: 파괴적 라우트(/api/admin/*) 보호용.
+# 미설정(빈 값)이면 해당 라우트는 비활성화되어 503을 반환한다.
+# (이름은 k8s/backend-deployment.yaml의 ADMIN_SECRET_KEY와 일치시킴)
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "").strip()
 
 # 지원 카테고리 메타데이터
 CATEGORY_META = {
@@ -270,14 +279,16 @@ db = SQLAlchemy(app)
 
 
 # MySQL 연결 시마다 utf8mb4 강제 (한글 깨짐 방지)
+# SQLite는 'SET NAMES'를 지원하지 않아 실패하는데, 이는 정상이므로 조용히 무시한다.
 @event.listens_for(Engine, "connect")
 def set_mysql_utf8mb4(dbapi_connection, _):
     try:
         cur = dbapi_connection.cursor()
         cur.execute("SET NAMES utf8mb4")
         cur.close()
-    except Exception:
-        pass
+    except Exception as e:
+        # MySQL에서 이 로그가 보이면 한글 인코딩 문제를 의심할 것 (SQLite는 정상)
+        print(f"[utf8mb4] SET NAMES 실패(SQLite면 정상): {e}", flush=True)
 
 
 # ──────────────────────────────────────────────────────────
@@ -1064,9 +1075,23 @@ PURGED_DEFAULT_COUNT = _ensure_schema()
 # API 라우트
 # ══════════════════════════════════════════════════════════
 
+def _require_admin():
+    """관리자 토큰 검증. 통과하면 None, 실패하면 (응답, 상태코드) 튜플 반환."""
+    if not ADMIN_SECRET_KEY:
+        # 토큰 미설정 시 파괴적 라우트를 아예 비활성화 (실수 노출 방지)
+        return jsonify({"error": "admin endpoint disabled: ADMIN_SECRET_KEY not configured"}), 503
+    provided = request.headers.get("X-Admin-Token", "")
+    if provided != ADMIN_SECRET_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+    return None
+
+
 @app.route("/api/admin/purge-questions", methods=["DELETE"])
 def purge_all_questions():
-    """[관리자] DB의 모든 문제 삭제"""
+    """[관리자] DB의 모든 문제 삭제. X-Admin-Token 헤더 필요."""
+    denied = _require_admin()
+    if denied:
+        return denied
     try:
         count = Question.query.count()
         Question.query.delete()

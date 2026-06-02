@@ -58,6 +58,8 @@ services:
       DB_PASSWORD:  ${DB_PASSWORD:-quizpassword}
       USE_SQLITE_FALLBACK: true
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ADMIN_SECRET_KEY: ${ADMIN_SECRET_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       GEMINI_API_URL: ${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}
       GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-45}
